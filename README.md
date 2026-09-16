@@ -1,4 +1,4 @@
-# 工具集 Chrome 扩展
+# ChromeToolbox
 
 实用的网页工具集合。
 
@@ -20,6 +20,14 @@ URL 过滤使用 Chrome [urlFilter 语法](https://developer.chrome.com/docs/ext
 
 - `||example.com`：匹配 example.com 及其所有子域名
 - `*://*.example.com/*`：匹配 example.com 子域名下的 http/https 请求
+
+### 识别二维码
+
+基于 jsQR 识别网页中的二维码（支持 `img` 图片和 `canvas`）：
+
+- **右键菜单**：在网页中右键 →「识别二维码」，右键目标是图片则直接识别，否则进入选择模式
+- **扩展按钮**：点扩展图标 →「识别二维码」，页面变暗后点击要识别的二维码
+- 识别结果弹窗展示内容，链接可一键打开，支持 ESC 关闭
 
 ## 安装方法
 
