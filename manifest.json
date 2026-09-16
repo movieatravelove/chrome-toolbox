@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "工具集",
+  "version": "1.5.0",
+  "description": "实用的网页工具集合",
+  "permissions": ["activeTab", "scripting", "declarativeNetRequest", "storage", "contextMenus"],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "icons": {
+    "16": "icons/icon16.svg",
+    "48": "icons/icon48.svg",
+    "128": "icons/icon128.svg"
+  }
+}

@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>工具集</title>
+  <style>
+    /* ===== 设计系统：clinical blueprint on frosted paper =====
+       三层表面：Canvas #f5f5f5 → Sidebar #fafafa → Card #ffffff
+       唯一彩色 #e7000b 仅用于删除/错误，主操作为黑底药丸按钮 */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      width: 320px;
+      padding: 16px;
+      font-family: "Geist", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-feature-settings: "ss01" on, "cv11" on;
+      background: #f5f5f5;
+      color: #0a0a0a;
+      font-size: 14px;
+      -webkit-font-smoothing: antialiased;
+    }
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #e5e5e5;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    h1 {
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: -0.025em;
+      line-height: 1.33;
+      margin-bottom: 16px;
+      color: #0a0a0a;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .mark {
+      display: flex;
+      color: #e7000b;
+    }
+
+    /* ===== 工具入口：卡片式按钮 ===== */
+    .tool-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .tool-btn {
+      width: 100%;
+      padding: 13px 16px;
+      border: 1px solid #e5e5e5;
+      border-radius: 18px;
+      background: #ffffff;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 500;
+      color: #0a0a0a;
+      text-align: left;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transition: background 0.15s, transform 0.1s;
+      box-shadow: 0 0 0 1px rgba(23,23,23,0.04), 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px -1px rgba(0,0,0,0.1);
+    }
+    .tool-btn:hover {
+      background: #fafafa;
+    }
+    .tool-btn:active {
+      transform: scale(0.985);
+    }
+    .tool-btn .icon {
+      display: flex;
+      color: #0a0a0a;
+    }
+
+    /* ===== 查看密码结果卡片 ===== */
+    .result {
+      margin-top: 16px;
+      padding: 12px 14px;
+      background: #ffffff;
+      border: 1px solid #e5e5e5;
+      border-radius: 18px;
+      font-size: 13px;
+      color: #0a0a0a;
+      max-height: 200px;
+      overflow-y: auto;
+      display: none;
+    }
+    .result.show {
+      display: block;
+    }
+    .result-item {
+      padding: 8px 2px;
+      border-bottom: 1px solid #e5e5e5;
+      word-break: break-all;
+    }
+    .result-item:last-child {
+      border-bottom: none;
+    }
+    .result-item label {
+      color: #737373;
+      font-size: 12px;
+      display: block;
+      margin-bottom: 4px;
+    }
+    .result-item .password {
+      font-family: "Geist Mono", "SF Mono", Consolas, monospace;
+      background: #f5f5f5;
+      padding: 4px 8px;
+      border-radius: 10px;
+    }
+    .empty {
+      color: #737373;
+      text-align: center;
+      padding: 16px;
+    }
+
+    /* ===== 修改 Header 面板 ===== */
+    body.panel-open {
+      width: 560px;
+    }
+    /* ===== 页面 header ===== */
+    .panel-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    /* 二级页标题降为 subheading，不重复首页的品牌装饰 */
+    .panel-header h1 {
+      margin-bottom: 0;
+      font-size: 16px;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+      color: #0a0a0a;
+    }
+    /* 面包屑风格返回链接：无填充、纯文字+箭头，悬浮下划线 */
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      border: none;
+      background: none;
+      padding: 4px 6px;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 500;
+      color: #737373;
+      cursor: pointer;
+      border-radius: 6px;
+      transition: color 0.12s, background 0.12s;
+    }
+    .back-link:hover {
+      color: #0a0a0a;
+      background: #f0f0f0;
+    }
+
+    /* 分组侧边栏：#fafafa 独立一层；宽度严格固定，内容不撑开 */
+    .sidebar-layout {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+    }
+    .sidebar {
+      flex: 0 0 140px;
+      width: 140px;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      background: #fafafa;
+      border-radius: 18px;
+      padding: 8px;
+      position: relative;
+    }
+    /* 侧边栏与主区之间的分割线（位于 gap 正中） */
+    .sidebar::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      right: -6.5px;
+      width: 1px;
+      background: #e5e5e5;
+    }
+    .sidebar-title {
+      font-size: 11px;
+      letter-spacing: 0.05em;
+      color: #737373;
+      padding: 2px 6px;
+      line-height: 1.4;
+    }
+    .group-list {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      max-height: 360px;
+      overflow-y: auto;
+      scrollbar-gutter: stable;
+      min-width: 0;
+    }
+    .group-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 8px 8px 8px 10px;
+      border-radius: 10px;
+      background: transparent;
+      font-size: 13px;
+      font-weight: 500;
+      color: #0a0a0a;
+      cursor: pointer;
+      transition: background 0.12s;
+    }
+    .group-item:hover {
+      background: #f0f0f0;
+    }
+    .group-item.active {
+      background: #0a0a0a;
+      color: #fafafa;
+    }
+    .group-item .group-label {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    /* 删除按钮：visibility 切换保持占位，避免出现/消失时挤压分组名 */
+    .group-item .group-del {
+      display: inline-flex;
+      visibility: hidden;
+      flex: 0 0 auto;
+      align-items: center;
+      justify-content: center;
+      border: none;
+      background: none;
+      cursor: pointer;
+      padding: 3px;
+      border-radius: 6px;
+      color: #737373;
+    }
+    .group-item:hover .group-del,
+    .group-item.active .group-del {
+      visibility: visible;
+    }
+    .group-item.active .group-del {
+      color: rgba(250,250,250,0.7);
+    }
+    .group-item .group-del:hover {
+      color: #e7000b;
+    }
+    .group-item.active .group-del:hover {
+      color: #ff5b60;
+    }
+    .sidebar-add {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      border: 1px solid #e5e5e5;
+      background: transparent;
+      border-radius: 10px;
+      padding: 8px;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 500;
+      color: #737373;
+      cursor: pointer;
+      transition: color 0.12s, border-color 0.12s;
+    }
+    .sidebar-add:hover {
+      color: #0a0a0a;
+      border-color: #0a0a0a;
+    }
+    .sidebar-main {
+      flex: 1;
+      min-width: 0;
+    }
+
+    /* 输入框：常态显示 hairline 边框，聚焦边框加深为墨色 */
+    .group-input {
+      width: 100%;
+      padding: 9px 12px;
+      border: 1px solid #e5e5e5;
+      border-radius: 18px;
+      font-family: inherit;
+      font-size: 13px;
+      color: #0a0a0a;
+      background: #fafafa;
+      margin-bottom: 8px;
+      transition: border-color 0.12s, background 0.12s;
+    }
+    .group-input::placeholder {
+      color: #a3a3a3;
+    }
+    .group-input:focus {
+      outline: none;
+      border-color: #0a0a0a;
+      background: #ffffff;
+    }
+
+    .field-hint {
+      font-size: 12px;
+      color: #737373;
+      margin: -2px 4px 10px;
+    }
+
+    /* 规则行：卡片 */
+    .rule-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 12px;
+      max-height: 340px;
+      overflow-y: auto;
+      padding-right: 2px;
+    }
+    .rule-row {
+      background: #ffffff;
+      border-radius: 18px;
+      padding: 10px;
+      border: 1px solid #e5e5e5;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+    .rule-row.has-error {
+      border-color: #e7000b;
+    }
+    .rule-row .row-line {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 6px;
+    }
+    .rule-row .row-line:last-child {
+      margin-bottom: 0;
+    }
+    .rule-row select,
+    .rule-row input {
+      padding: 6px 10px;
+      border: 1px solid #e5e5e5;
+      border-radius: 10px;
+      font-family: inherit;
+      font-size: 12px;
+      color: #0a0a0a;
+      background: #fafafa;
+      transition: border-color 0.12s, background 0.12s;
+    }
+    .rule-row input::placeholder {
+      color: #a3a3a3;
+    }
+    .rule-row select:focus,
+    .rule-row input:focus {
+      outline: none;
+      border-color: #0a0a0a;
+      background: #ffffff;
+    }
+    .rule-row select {
+      cursor: pointer;
+    }
+    .rule-row .direction-select {
+      flex: 0 0 88px;
+    }
+    .rule-row .operation-select {
+      flex: 0 0 76px;
+    }
+    .rule-row .row-hint {
+      align-self: center;
+      font-size: 11px;
+      color: #a3a3a3;
+      margin-left: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      min-width: 0;
+    }
+    .rule-row .name-input {
+      flex: 1;
+      min-width: 0;
+    }
+    .rule-row .value-input {
+      flex: 1;
+      min-width: 0;
+    }
+    .rule-row .kv-sep {
+      align-self: center;
+      color: #737373;
+      font-size: 13px;
+    }
+    .rule-row.no-value .kv-sep,
+    .rule-row.no-value .value-input {
+      display: none;
+    }
+    .rule-row .remove-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex: 0 0 auto;
+      margin-left: auto;
+      border: none;
+      background: none;
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 8px;
+      color: #737373;
+      transition: color 0.12s, background 0.12s;
+    }
+    .rule-row .remove-btn:hover {
+      color: #e7000b;
+      background: #f5f5f5;
+    }
+    .rule-row .row-error {
+      display: none;
+      color: #e7000b;
+      font-size: 11px;
+      margin-top: 4px;
+      word-break: break-all;
+    }
+    .rule-row.has-error .row-error {
+      display: block;
+    }
+
+    /* 底部操作：黑底主按钮 + 灰底次按钮，同形药丸 */
+    .panel-actions {
+      display: flex;
+      gap: 8px;
+    }
+    .action-btn {
+      flex: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 10px;
+      border: none;
+      border-radius: 18px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 500;
+      transition: background 0.15s, transform 0.1s;
+    }
+    .action-btn:active {
+      transform: scale(0.985);
+    }
+    .action-btn.secondary {
+      background: #f5f5f5;
+      color: #0a0a0a;
+    }
+    .action-btn.secondary:hover {
+      background: #ebebeb;
+    }
+    .action-btn.primary {
+      background: #0a0a0a;
+      color: #fafafa;
+    }
+    .action-btn.primary:hover {
+      background: #171717;
+    }
+    /* 导入区：textarea + 操作行，风格与输入框一致 */
+    .import-area {
+      margin-top: 10px;
+    }
+    .import-textarea {
+      width: 100%;
+      min-height: 120px;
+      padding: 10px 12px;
+      border: 1px solid #e5e5e5;
+      border-radius: 10px;
+      font-family: inherit;
+      font-size: 12px;
+      line-height: 1.5;
+      color: #0a0a0a;
+      background: #fafafa;
+      resize: vertical;
+      transition: border-color 0.12s, background 0.12s;
+    }
+    .import-textarea::placeholder {
+      color: #a3a3a3;
+    }
+    .import-textarea:focus {
+      outline: none;
+      border-color: #0a0a0a;
+      background: #ffffff;
+    }
+    .import-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .status-msg {
+      margin-top: 10px;
+      font-size: 12px;
+      text-align: center;
+      min-height: 16px;
+      color: #737373;
+    }
+    .status-msg.success {
+      color: #0a0a0a;
+    }
+    .status-msg.error {
+      color: #e7000b;
+    }
+  </style>
+</head>
+<body>
+  <h1><span class="mark"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></span> 工具集</h1>
+
+  <div class="tool-list" id="toolList">
+    <button class="tool-btn" id="showPasswords">
+      <span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></span> 查看密码
+    </button>
+    <button class="tool-btn" id="editHeaders">
+      <span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r="1" fill="currentColor"/></svg></span> 修改 Header
+    </button>
+    <button class="tool-btn" id="scanQR">
+      <span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="5" height="5" x="3" y="3" rx="1"/><path d="M3 8h5M8 3v5M16 3h5v5M3 16v5h5M21 16v5h-5"/><path d="M14 14h.01M14 17h.01M17 14h.01M17 17h.01M14 20h.01M17 20h.01"/></svg></span> 识别二维码
+    </button>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <!-- 修改 Header 面板 -->
+  <div id="headerPanel" style="display:none;">
+    <div class="panel-header">
+      <button class="back-link" id="backFromHeaders"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg> 返回</button>
+      <h1>修改 Header</h1>
+    </div>
+
+    <div class="sidebar-layout">
+      <aside class="sidebar">
+        <div class="sidebar-title">分组（选中即生效）</div>
+        <div class="group-list" id="groupList"></div>
+        <button class="sidebar-add" id="addGroup"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg> 新建分组</button>
+      </aside>
+
+      <div class="sidebar-main">
+        <input id="groupName" class="group-input" placeholder="分组名称">
+        <input id="groupUrl" class="group-input" placeholder="本组 URL 过滤（选填），如 ||example.com">
+
+        <div class="field-hint">URL 留空对所有网站生效；点击左侧分组切换，选中即生效</div>
+
+        <div class="rule-list" id="ruleList"></div>
+
+        <div class="panel-actions">
+          <button class="action-btn secondary" id="addRule"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg> 添加一条</button>
+          <button class="action-btn secondary" id="importBtn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg> 导入</button>
+          <button class="action-btn primary" id="saveRules">应用当前分组</button>
+        </div>
+
+        <!-- 导入区：粘贴 JSON 或 Key-Value 文本，自动识别格式 -->
+        <div class="import-area" id="importArea" style="display:none;">
+          <textarea id="importText" class="import-textarea" placeholder="粘贴 JSON 或 Key-Value 文本，自动识别格式&#10;&#10;JSON：{&quot;X-Token&quot;: &quot;abc123&quot;}&#10;Key-Value：每行一条，支持 = 或 : 分隔&#10;X-Token = abc123&#10;User-Agent: MyBot"></textarea>
+          <div class="import-actions">
+            <button class="action-btn secondary" id="importCancel">取消</button>
+            <button class="action-btn primary" id="importConfirm">导入</button>
+          </div>
+        </div>
+
+        <div class="status-msg" id="headerStatus"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+  <script src="headers.js"></script>
+</body>
+</html>
