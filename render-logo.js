@@ -9,9 +9,11 @@ const zlib = require('zlib');
 const path = require('path');
 
 // ---------- 形状（均在 128 单位坐标系） ----------
+// 圆角矩形：夹到内缩 r 的矩形后比距离，圆心位于内缩角（正确切除外角）
 function inRoundRect(x, y, rx, ry, rw, rh, r) {
-  const cx = Math.min(Math.max(x, rx), rx + rw);
-  const cy = Math.min(Math.max(y, ry), ry + rh);
+  r = Math.min(r, rw / 2, rh / 2);
+  const cx = Math.min(Math.max(x, rx + r), rx + rw - r);
+  const cy = Math.min(Math.max(y, ry + r), ry + rh - r);
   const dx = x - cx, dy = y - cy;
   return dx * dx + dy * dy <= r * r;
 }
@@ -129,14 +131,17 @@ function sample16(x, y, variant) {
 }
 
 // ---------- 超采样光栅化 ----------
+// glyph 版放大系数：原造型只占约 60% 幅面，放大到 ~80%（标准透明图标比例）。
+// 设计中心：128 版 (64, 67.75)、16 版 (8, 8.875)，放大后对准各自画布中心。
+const GLYPH_K = 1.22;
+const GLYPH_K16 = 1.2;
+
 function render(size, variant) {
   const native16 = size === 16;
-  const SS = native16 ? 8 : 4;
+  const SS = size >= 128 ? 4 : 8; // 小尺寸细接缝多，加倍超采样避免杂点
   const showDots = size >= 32;
   const showSeam = size >= 48;
   const scale = 128 / size;
-  // glyph 版造型原本偏下（上边距大于下边距），采样时整体上移使其垂直居中
-  const yUp = variant === 'glyph' ? (native16 ? 0.9 : 4) : 0;
   const px = Buffer.alloc(size * size * 4);
 
   for (let py = 0; py < size; py++) {
@@ -145,10 +150,23 @@ function render(size, variant) {
       for (let sy = 0; sy < SS; sy++) {
         for (let sx = 0; sx < SS; sx++) {
           const dx = pxx + (sx + 0.5) / SS;
-          const dy = py + (sy + 0.5) / SS + yUp;
-          const c = native16
-            ? sample16(dx, dy, variant)
-            : sampleAt(dx * scale, dy * scale, variant, showDots, showSeam);
+          const dy = py + (sy + 0.5) / SS;
+          let c;
+          if (variant === 'glyph') {
+            // 画布坐标 → 放大前的设计坐标（逆变换），同时完成居中
+            if (native16) {
+              c = sample16(8 + (dx - 8) / GLYPH_K16,
+                           8.875 + (dy - 8) / GLYPH_K16, variant);
+            } else {
+              c = sampleAt(64 + (dx * scale - 64) / GLYPH_K,
+                           67.75 + (dy * scale - 64) / GLYPH_K,
+                           variant, showDots, showSeam);
+            }
+          } else {
+            c = native16
+              ? sample16(dx, dy, variant)
+              : sampleAt(dx * scale, dy * scale, variant, showDots, showSeam);
+          }
           if (c) { r += c[0]; g += c[1]; b += c[2]; a += 255; }
         }
       }

@@ -5,8 +5,8 @@
       <stop offset='1' stop-color='#2B57C9'/>
     </linearGradient>
   </defs>
-  <!-- 透明背景：蓝紫渐变工具箱，白色锁扣，Chrome 三色圆点；整体上移 4 居中 -->
-  <g transform='translate(0,-4)'>
+  <!-- 透明背景：蓝紫渐变工具箱，白色锁扣，Chrome 三色圆点；放大 1.22 并居中 -->
+  <g transform='translate(-14.08,-18.66) scale(1.22)'>
   <!-- 提手 -->
   <path d='M50 58v-9a14 14 0 0 1 28 0v9' fill='none' stroke='url(#box)' stroke-width='7'/>
   <!-- 箱盖 -->

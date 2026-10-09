@@ -5,7 +5,7 @@
       <stop offset='1' stop-color='#2B57C9'/>
     </linearGradient>
   </defs>
-  <g transform='translate(0,-.9)'>
+  <g transform='translate(-1.6,-2.65) scale(1.2)'>
   <path d='M5.7 7.9V7a2.3 2.3 0 0 1 4.6 0v.9' fill='none' stroke='url(#box)' stroke-width='1.1'/>
   <rect x='3' y='7' width='10' height='2.3' rx='1.15' fill='url(#box)'/>
   <rect x='3.7' y='9' width='8.6' height='4.6' rx='1.2' fill='url(#box)'/>
