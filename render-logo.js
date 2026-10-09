@@ -270,7 +270,7 @@ function makePreview() {
 
 // ---------- 输出 ----------
 const outDir = path.join(__dirname, 'icons');
-const VARIANT = process.env.LOGO_VARIANT || 'glyph'; // plate | glyph
+const VARIANT = process.env.LOGO_VARIANT || 'plate'; // plate | glyph
 for (const size of [16, 48, 128]) {
   const png = encodePNG(render(size, VARIANT), size);
   fs.writeFileSync(path.join(outDir, `icon${size}.png`), png);
