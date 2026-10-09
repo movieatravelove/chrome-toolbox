@@ -1,25 +1,26 @@
 <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 128 128'>
   <defs>
-    <linearGradient id='bg' x1='0' y1='0' x2='1' y2='1'>
+    <linearGradient id='box' x1='0' y1='0' x2='1' y2='1'>
       <stop offset='0' stop-color='#5B8DEF'/>
       <stop offset='1' stop-color='#2B57C9'/>
     </linearGradient>
   </defs>
-  <!-- 圆角底板 -->
-  <rect width='128' height='128' rx='28' fill='url(#bg)'/>
-  <!-- 工具箱提手：半圆弧 + 两腿（stroke 7） -->
-  <path d='M50 58v-9a14 14 0 0 1 28 0v9' fill='none' stroke='#ffffff' stroke-width='7'/>
+  <!-- 透明背景：蓝紫渐变工具箱，白色锁扣，Chrome 三色圆点；整体上移 4 居中 -->
+  <g transform='translate(0,-4)'>
+  <!-- 提手 -->
+  <path d='M50 58v-9a14 14 0 0 1 28 0v9' fill='none' stroke='url(#box)' stroke-width='7'/>
   <!-- 箱盖 -->
-  <rect x='26' y='54' width='76' height='14' rx='7' fill='#ffffff'/>
+  <rect x='26' y='54' width='76' id='lid' height='14' rx='7' fill='url(#box)'/>
   <!-- 箱体 -->
-  <rect x='30' y='66' width='68' height='40' rx='9' fill='#ffffff'/>
-  <!-- 箱盖接缝（锁扣两侧） -->
-  <rect x='32' y='66' width='25' height='2.4' fill='#BECEEE'/>
-  <rect x='71' y='66' width='25' height='2.4' fill='#BECEEE'/>
-  <!-- Chrome 四色点缀（蓝留白，取红黄绿） -->
+  <rect x='30' y='66' width='68' height='40' rx='9' fill='url(#box)'/>
+  <!-- 箱盖接缝（半透明白） -->
+  <rect x='32' y='66' width='25' height='2.4' fill='#ffffff' opacity='.35'/>
+  <rect x='71' y='66' width='25' height='2.4' fill='#ffffff' opacity='.35'/>
+  <!-- Chrome 三色点缀 -->
   <circle cx='48' cy='88' r='5' fill='#EA4335'/>
   <circle cx='64' cy='88' r='5' fill='#FBBC05'/>
   <circle cx='80' cy='88' r='5' fill='#34A853'/>
-  <!-- 锁扣（压住箱盖与箱体接缝） -->
-  <rect x='58' y='62' width='12' height='14' rx='3' fill='#2B57C9'/>
+  <!-- 白色锁扣（压住接缝） -->
+  <rect x='58' y='62' width='12' height='14' rx='3' fill='#ffffff'/>
+  </g>
 </svg>

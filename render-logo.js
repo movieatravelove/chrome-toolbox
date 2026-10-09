@@ -42,27 +42,45 @@ const C_GREEN = [52, 168, 83];
 
 function lerp(a, b, t) { return a + (b - a) * t; }
 
-const C_SEAM = [190, 206, 238]; // 箱盖/箱体接缝浅灰蓝
+const C_SEAM = [190, 206, 238]; // 底板版接缝浅灰蓝
 
-// 返回该点颜色（不透明形状覆盖），底板外返回 null
-function sampleAt(x, y, showDots, showSeam) {
-  if (!inRoundRect(x, y, 0, 0, 128, 128, 28)) return null;
-
-  // 对角渐变底板
+// 对角渐变色（glyph 版工具箱本体）
+function gradAt(x, y) {
   const t = (x + y) / 256;
-  let color = [
-  Math.round(lerp(C_TOP[0], C_BLUE[0], t)),
-  Math.round(lerp(C_TOP[1], C_BLUE[1], t)),
-  Math.round(lerp(C_TOP[2], C_BLUE[2], t)),
+  return [
+    Math.round(lerp(C_TOP[0], C_BLUE[0], t)),
+    Math.round(lerp(C_TOP[1], C_BLUE[1], t)),
+    Math.round(lerp(C_TOP[2], C_BLUE[2], t)),
   ];
+}
+function blend(c1, c2, t) {
+  return [
+    Math.round(lerp(c1[0], c2[0], t)),
+    Math.round(lerp(c1[1], c2[1], t)),
+    Math.round(lerp(c1[2], c2[2], t)),
+  ];
+}
 
-  if (inHandle(x, y)) color = C_WHITE;
-  if (inRoundRect(x, y, 26, 54, 76, 14, 7)) color = C_WHITE; // 箱盖
+// variant: 'plate' 圆角蓝底白工具箱 | 'glyph' 透明底蓝色工具箱
+// 返回该点颜色（不透明形状覆盖），形状外返回 null
+function sampleAt(x, y, variant, showDots, showSeam) {
+  let color = null;
+
+  if (variant === 'plate') {
+    if (!inRoundRect(x, y, 0, 0, 128, 128, 28)) return null;
+    color = gradAt(x, y);
+  }
+
+  if (inHandle(x, y)) color = variant === 'plate' ? C_WHITE : gradAt(x, y);
+  if (inRoundRect(x, y, 26, 54, 76, 14, 7)) {
+    color = variant === 'plate' ? C_WHITE : gradAt(x, y); // 箱盖
+  }
   if (inRoundRect(x, y, 30, 66, 68, 40, 9)) {
-    color = C_WHITE; // 箱体
+    color = variant === 'plate' ? C_WHITE : gradAt(x, y); // 箱体
     if (showSeam && y >= 66 && y <= 68.4 &&
         ((x >= 32 && x <= 57) || (x >= 71 && x <= 96))) {
-      color = C_SEAM; // 箱盖接缝
+      // glyph 版接缝用半透明白叠在蓝体上
+      color = variant === 'plate' ? C_SEAM : blend(color, C_WHITE, 0.35);
     }
     if (showDots) {
       if (inCircle(x, y, 48, 88, 5)) color = C_RED;
@@ -70,40 +88,55 @@ function sampleAt(x, y, showDots, showSeam) {
       else if (inCircle(x, y, 80, 88, 5)) color = C_GREEN;
     }
   }
-  if (inRoundRect(x, y, 58, 62, 12, 14, 3)) color = C_BLUE; // 锁扣
+  // 锁扣：底板版蓝、透明版白
+  if (inRoundRect(x, y, 58, 62, 12, 14, 3)) {
+    color = variant === 'plate' ? C_BLUE : C_WHITE;
+  }
   return color;
 }
 
 // 16px 专用加粗造型（直接在 16 单位坐标系设计，小尺寸下保证可辨）
-function sample16(x, y) {
-  if (!inRoundRect(x, y, 0, 0, 16, 16, 3.5)) return null;
-  const t = (x + y) / 32;
-  let color = [
-    Math.round(lerp(C_TOP[0], C_BLUE[0], t)),
-    Math.round(lerp(C_TOP[1], C_BLUE[1], t)),
-    Math.round(lerp(C_TOP[2], C_BLUE[2], t)),
+function sample16(x, y, variant) {
+  let color = null;
+  if (variant === 'plate') {
+    if (!inRoundRect(x, y, 0, 0, 16, 16, 3.5)) return null;
+    const t = (x + y) / 32;
+    color = [
+      Math.round(lerp(C_TOP[0], C_BLUE[0], t)),
+      Math.round(lerp(C_TOP[1], C_BLUE[1], t)),
+      Math.round(lerp(C_TOP[2], C_BLUE[2], t)),
+    ];
+  }
+  const bodyColor = variant === 'plate' ? C_WHITE : [
+    Math.round(lerp(C_TOP[0], C_BLUE[0], (x + y) / 32)),
+    Math.round(lerp(C_TOP[1], C_BLUE[1], (x + y) / 32)),
+    Math.round(lerp(C_TOP[2], C_BLUE[2], (x + y) / 32)),
   ];
 
   // 提手：R 2.3，管粗 1.1
   if (y <= 7) {
     const d = Math.sqrt((x - 8) * (x - 8) + (y - 7) * (y - 7));
-    if (Math.abs(d - 2.3) <= 0.55) color = C_WHITE;
+    if (Math.abs(d - 2.3) <= 0.55) color = bodyColor;
   }
   if (y >= 7 && y <= 7.9 &&
-      ((x >= 5.15 && x <= 6.25) || (x >= 9.75 && x <= 10.85))) color = C_WHITE;
-  if (inRoundRect(x, y, 3, 7, 10, 2.3, 1.15)) color = C_WHITE; // 箱盖
-  if (inRoundRect(x, y, 3.7, 9, 8.6, 4.6, 1.2)) color = C_WHITE; // 箱体
-  if (inRoundRect(x, y, 7.2, 7.9, 1.6, 2, 0.45)) color = C_BLUE; // 锁扣
+      ((x >= 5.15 && x <= 6.25) || (x >= 9.75 && x <= 10.85))) color = bodyColor;
+  if (inRoundRect(x, y, 3, 7, 10, 2.3, 1.15)) color = bodyColor; // 箱盖
+  if (inRoundRect(x, y, 3.7, 9, 8.6, 4.6, 1.2)) color = bodyColor; // 箱体
+  if (inRoundRect(x, y, 7.2, 7.9, 1.6, 2, 0.45)) {
+    color = variant === 'plate' ? C_BLUE : C_WHITE; // 锁扣
+  }
   return color;
 }
 
 // ---------- 超采样光栅化 ----------
-function render(size) {
+function render(size, variant) {
   const native16 = size === 16;
   const SS = native16 ? 8 : 4;
   const showDots = size >= 32;
   const showSeam = size >= 48;
   const scale = 128 / size;
+  // glyph 版造型原本偏下（上边距大于下边距），采样时整体上移使其垂直居中
+  const yUp = variant === 'glyph' ? (native16 ? 0.9 : 4) : 0;
   const px = Buffer.alloc(size * size * 4);
 
   for (let py = 0; py < size; py++) {
@@ -112,10 +145,10 @@ function render(size) {
       for (let sy = 0; sy < SS; sy++) {
         for (let sx = 0; sx < SS; sx++) {
           const dx = pxx + (sx + 0.5) / SS;
-          const dy = py + (sy + 0.5) / SS;
+          const dy = py + (sy + 0.5) / SS + yUp;
           const c = native16
-            ? sample16(dx, dy)
-            : sampleAt(dx * scale, dy * scale, showDots, showSeam);
+            ? sample16(dx, dy, variant)
+            : sampleAt(dx * scale, dy * scale, variant, showDots, showSeam);
           if (c) { r += c[0]; g += c[1]; b += c[2]; a += 255; }
         }
       }
@@ -155,16 +188,17 @@ function chunk(type, data) {
   return Buffer.concat([len, body, crc]);
 }
 
-function encodePNG(rgba, size) {
+function encodePNG(rgba, w, h) {
+  h = h || w;
   const ihdr = Buffer.alloc(13);
-  ihdr.writeUInt32BE(size, 0);
-  ihdr.writeUInt32BE(size, 4);
+  ihdr.writeUInt32BE(w, 0);
+  ihdr.writeUInt32BE(h, 4);
   ihdr[8] = 8;   // bit depth
   ihdr[9] = 6;   // RGBA
   // 每行前置 filter 0
-  const raw = Buffer.alloc((size * 4 + 1) * size);
-  for (let y = 0; y < size; y++) {
-    rgba.copy(raw, y * (size * 4 + 1) + 1, y * size * 4, (y + 1) * size * 4);
+  const raw = Buffer.alloc((w * 4 + 1) * h);
+  for (let y = 0; y < h; y++) {
+    rgba.copy(raw, y * (w * 4 + 1) + 1, y * w * 4, (y + 1) * w * 4);
   }
   return Buffer.concat([
     Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
@@ -174,10 +208,53 @@ function encodePNG(rgba, size) {
   ]);
 }
 
+// ---------- 方案对比预览（浅色/深色工具栏背景上实际效果） ----------
+function makePreview() {
+  const W = 560, H = 360;
+  const canvas = Buffer.alloc(W * H * 4);
+  function fill(r, g, b, y0, y1) {
+    for (let y = y0; y < y1; y++) for (let x = 0; x < W; x++) {
+      const i = (y * W + x) * 4;
+      canvas[i] = r; canvas[i + 1] = g; canvas[i + 2] = b; canvas[i + 3] = 255;
+    }
+  }
+  fill(241, 243, 244, 0, H / 2);   // Chrome 浅色工具栏
+  fill(53, 54, 58, H / 2, H);     // Chrome 深色工具栏
+
+  function blit(rgba, s, x0, y0) {
+    for (let y = 0; y < s; y++) for (let x = 0; x < s; x++) {
+      const si = (y * s + x) * 4;
+      const sa = rgba[si + 3] / 255;
+      if (!sa) continue;
+      const di = ((y0 + y) * W + (x0 + x)) * 4;
+      const da = canvas[di + 3] / 255;
+      const outA = sa + da * (1 - sa);
+      for (let k = 0; k < 3; k++) {
+        canvas[di + k] = Math.round((rgba[si + k] * sa + canvas[di + k] * da * (1 - sa)) / outA);
+      }
+      canvas[di + 3] = Math.round(outA * 255);
+    }
+  }
+
+  const rows = [16, H / 2 + 16];
+  rows.forEach((y0) => {
+    blit(render(128, 'glyph'), 128, 16, y0);          // 透明版大图
+    blit(render(48, 'glyph'), 48, 164, y0);
+    blit(render(32, 'glyph'), 32, 164, y0 + 56);
+    blit(render(16, 'glyph'), 16, 172, y0 + 112);
+    blit(render(128, 'plate'), 128, 296, y0);         // 底板版大图
+    blit(render(48, 'plate'), 48, 444, y0);
+    blit(render(32, 'plate'), 32, 444, y0 + 56);
+    blit(render(16, 'plate'), 16, 452, y0 + 112);
+  });
+  return encodePNG(canvas, W, H);
+}
+
 // ---------- 输出 ----------
 const outDir = path.join(__dirname, 'icons');
+const VARIANT = process.env.LOGO_VARIANT || 'glyph'; // plate | glyph
 for (const size of [16, 48, 128]) {
-  const png = encodePNG(render(size), size);
+  const png = encodePNG(render(size, VARIANT), size);
   fs.writeFileSync(path.join(outDir, `icon${size}.png`), png);
-  console.log(`icons/icon${size}.png  ${png.length} bytes`);
+  console.log(`icons/icon${size}.png [${VARIANT}]  ${png.length} bytes`);
 }
