@@ -1,3 +1,5 @@
+<p align="center"><img src="icons/icon128.png" width="84" alt="ChromeToolbox logo"></p>
+
 # ChromeToolbox
 
 实用的网页工具集合。
