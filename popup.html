@@ -126,6 +126,337 @@
       padding: 16px;
     }
 
+    /* ===== 设置卡片 ===== */
+    .setting-card {
+      margin-top: 12px;
+      padding: 12px 14px;
+      background: #ffffff;
+      border: 1px solid #e5e5e5;
+      border-radius: 18px;
+      box-shadow: 0 0 0 1px rgba(23,23,23,0.04), 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px -1px rgba(0,0,0,0.1);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    /* 含子设置的纵向大卡片：开关 / 分隔线 / 按站屏蔽 / 屏蔽名单 */
+    .setting-card.stacked {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0;
+      padding: 14px;
+    }
+    .setting-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .sub-divider {
+      height: 1px;
+      background: #e5e5e5;
+      margin: 12px 0;
+    }
+    .setting-subname {
+      font-size: 11px;
+      letter-spacing: 0.04em;
+      color: #737373;
+      margin-bottom: 3px;
+    }
+
+    /* 齿轮设置入口：无边框图标按钮 */
+    .icon-btn {
+      flex: 0 0 auto;
+      width: 32px;
+      height: 32px;
+      padding: 0;
+      border: none;
+      border-radius: 50%;
+      background: transparent;
+      color: #737373;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.12s, color 0.12s;
+    }
+    .icon-btn:hover {
+      background: #f0f0f0;
+      color: #0a0a0a;
+    }
+
+    /* ===== 单选行组（触发方式）===== */
+    .radio-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .radio-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      padding: 10px 12px;
+      background: #fafafa;
+      border: 1px solid #e5e5e5;
+      border-radius: 12px;
+      cursor: pointer;
+      font-family: inherit;
+      text-align: left;
+      transition: border-color 0.12s, background 0.12s;
+    }
+    .radio-row:hover {
+      background: #ffffff;
+    }
+    .radio-row.selected {
+      border-color: #0a0a0a;
+      background: #ffffff;
+    }
+    .radio-row .dot {
+      flex: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      border: 1.5px solid #a3a3a3;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .radio-row .dot::after {
+      content: '';
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #0a0a0a;
+      display: none;
+    }
+    .radio-row.selected .dot {
+      border-color: #0a0a0a;
+    }
+    .radio-row.selected .dot::after {
+      display: block;
+    }
+    .radio-row .radio-text {
+      flex: 1;
+      min-width: 0;
+    }
+    .radio-row .radio-title {
+      font-size: 13px;
+      font-weight: 500;
+      color: #0a0a0a;
+    }
+    .radio-row .radio-desc {
+      font-size: 11px;
+      color: #737373;
+      margin-top: 2px;
+      line-height: 1.4;
+    }
+
+    /* 分段切换（名单模式） */
+    .seg {
+      display: flex;
+      gap: 2px;
+      padding: 3px;
+      background: #f5f5f5;
+      border-radius: 10px;
+    }
+    .seg-btn {
+      flex: 1;
+      padding: 7px;
+      border: none;
+      border-radius: 8px;
+      background: transparent;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 500;
+      color: #737373;
+      cursor: pointer;
+      transition: background 0.12s, color 0.12s;
+    }
+    .seg-btn.selected {
+      background: #0a0a0a;
+      color: #fafafa;
+    }
+
+    /* 手动添加域名 */
+    .add-host-row {
+      display: flex;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .add-host-input {
+      flex: 1;
+      min-width: 0;
+      padding: 8px 10px;
+      border: 1px solid #e5e5e5;
+      border-radius: 10px;
+      font-family: inherit;
+      font-size: 12px;
+      background: #fafafa;
+      color: #0a0a0a;
+      transition: border-color 0.12s, background 0.12s;
+    }
+    .add-host-input:focus {
+      outline: none;
+      border-color: #0a0a0a;
+      background: #ffffff;
+    }
+    .add-host-btn {
+      flex: none;
+      padding: 8px 14px;
+      border: 1px solid #0a0a0a;
+      border-radius: 10px;
+      background: #0a0a0a;
+      color: #fafafa;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+    .add-host-btn:active {
+      transform: scale(0.97);
+    }
+    .field-error-inline {
+      font-size: 11px;
+      color: #e7000b;
+      margin-top: 6px;
+      min-height: 0;
+    }
+
+    /* 二级页打开时隐藏首页内容（仅 body 直接子元素，
+       不能连带隐藏面板内部的 .setting-card） */
+    body.img-settings-open > #toolList,
+    body.img-settings-open > .setting-card,
+    body.img-settings-open > .result {
+      display: none;
+    }
+    /* 修改 Header 面板打开时也隐藏图片预览卡片（headerPanel 内无 setting-card） */
+    body.panel-open > .setting-card {
+      display: none;
+    }
+    .setting-info {
+      flex: 1;
+      min-width: 0;
+    }
+    .setting-name {
+      font-size: 13px;
+      font-weight: 500;
+      color: #0a0a0a;
+    }
+    .setting-desc {
+      font-size: 11px;
+      color: #737373;
+      margin-top: 2px;
+    }
+    /* 药丸开关：开启时墨色 */
+    .switch {
+      flex: 0 0 auto;
+      position: relative;
+      width: 38px;
+      height: 22px;
+    }
+    .switch input {
+      position: absolute;
+      opacity: 0;
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      cursor: pointer;
+    }
+    .switch .slider {
+      position: absolute;
+      inset: 0;
+      background: #d4d4d4;
+      border-radius: 999px;
+      transition: background 0.15s;
+      pointer-events: none;
+    }
+    .switch .slider::before {
+      content: '';
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 16px;
+      height: 16px;
+      background: #fff;
+      border-radius: 50%;
+      transition: transform 0.15s;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+    }
+    .switch input:checked + .slider {
+      background: #0a0a0a;
+    }
+    .switch input:checked + .slider::before {
+      transform: translateX(16px);
+    }
+    .switch input:focus-visible + .slider {
+      outline: 2px solid #737373;
+      outline-offset: 2px;
+    }
+
+    /* 屏蔽网站：紧凑药丸操作按钮 */
+    .mini-btn {
+      flex: 0 0 auto;
+      padding: 7px 14px;
+      border: 1px solid #e5e5e5;
+      border-radius: 999px;
+      background: #ffffff;
+      color: #0a0a0a;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.12s, color 0.12s, border-color 0.12s;
+    }
+    .mini-btn:hover {
+      background: #f5f5f5;
+    }
+    .mini-btn.blocked {
+      background: #0a0a0a;
+      border-color: #0a0a0a;
+      color: #fafafa;
+    }
+    .mini-btn.blocked:hover {
+      background: #171717;
+    }
+    .mini-btn:disabled {
+      opacity: 0.4;
+      cursor: default;
+    }
+    .host-line {
+      font-family: "Geist Mono", "SF Mono", Consolas, monospace;
+      font-size: 12px;
+      word-break: break-all;
+    }
+    .blocked-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 0;
+      border-bottom: 1px solid #e5e5e5;
+    }
+    .blocked-item:last-child {
+      border-bottom: none;
+    }
+    .blocked-item .host-line {
+      flex: 1;
+      min-width: 0;
+    }
+    .blocked-item .unblock {
+      flex: 0 0 auto;
+      border: none;
+      background: none;
+      color: #737373;
+      font-family: inherit;
+      font-size: 15px;
+      line-height: 1;
+      cursor: pointer;
+      padding: 3px 6px;
+      border-radius: 6px;
+    }
+    .blocked-item .unblock:hover {
+      color: #e7000b;
+      background: #f5f5f5;
+    }
+
     /* ===== 修改 Header 面板 ===== */
     body.panel-open {
       width: 560px;
@@ -528,7 +859,111 @@
     </button>
   </div>
 
+  <!-- 首页：概览卡片（开关 + 设置入口），详细设置进二级页 -->
+  <div class="setting-card">
+    <div class="setting-info">
+      <div class="setting-name">图片预览</div>
+      <div class="setting-desc">任意网页点击图片就地浮层查看</div>
+    </div>
+    <label class="switch">
+      <input type="checkbox" id="ghPreviewToggle">
+      <span class="slider"></span>
+    </label>
+    <button class="icon-btn" id="imageSettingsBtn" type="button" title="图片预览设置">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    </button>
+  </div>
+
   <div class="result" id="result"></div>
+
+  <!-- 图片预览设置二级页 -->
+  <div id="imageSettingsPanel" style="display:none;">
+    <div class="panel-header">
+      <button class="back-link" id="backFromImageSettings"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg> 返回</button>
+      <h1>图片预览设置</h1>
+    </div>
+
+    <!-- 总开关 -->
+    <div class="setting-card">
+      <div class="setting-info">
+        <div class="setting-name">启用图片预览</div>
+        <div class="setting-desc">关闭后所有网站均不弹出预览</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="ghPreviewToggleDetail">
+        <span class="slider"></span>
+      </label>
+    </div>
+
+    <!-- 触发方式 -->
+    <div class="setting-card stacked">
+      <div class="setting-subname" style="margin-bottom:8px;">触发方式</div>
+      <div class="radio-list" id="triggerModeList">
+        <button type="button" class="radio-row selected" data-mode="click">
+          <span class="dot"></span>
+          <span class="radio-text">
+            <span class="radio-title">点击预览</span>
+            <span class="radio-desc">左键点击图片即打开浮层（默认）</span>
+          </span>
+        </button>
+        <button type="button" class="radio-row" data-mode="contextMenu">
+          <span class="dot"></span>
+          <span class="radio-text">
+            <span class="radio-title">右键菜单</span>
+            <span class="radio-desc">右键图片 →「预览图片」，点击不拦截</span>
+          </span>
+        </button>
+        <button type="button" class="radio-row" data-mode="modifier">
+          <span class="dot"></span>
+          <span class="radio-text">
+            <span class="radio-title">Alt + 点击</span>
+            <span class="radio-desc">按住 Alt 键点击才预览，普通点击保持原生</span>
+          </span>
+        </button>
+        <button type="button" class="radio-row" data-mode="hover">
+          <span class="dot"></span>
+          <span class="radio-text">
+            <span class="radio-title">悬停放大</span>
+            <span class="radio-desc">鼠标悬停图片约 0.6 秒自动显示，移开/ESC 关闭</span>
+          </span>
+        </button>
+      </div>
+    </div>
+
+    <!-- 网站名单：模式 / 当前网站 / 手动添加 / 列表 -->
+    <div class="setting-card stacked">
+      <div class="setting-subname">名单模式</div>
+      <div class="seg" id="filterModeSeg">
+        <button type="button" class="seg-btn selected" data-mode="blacklist">黑名单（排除指定站）</button>
+        <button type="button" class="seg-btn" data-mode="whitelist">白名单（仅指定站）</button>
+      </div>
+
+      <div class="sub-divider"></div>
+
+      <div class="setting-row">
+        <div class="setting-info">
+          <div class="setting-subname">当前网站</div>
+          <div class="host-line" id="currentHost">…</div>
+        </div>
+        <button class="mini-btn" id="blockSiteBtn" type="button">屏蔽此站</button>
+      </div>
+
+      <div class="sub-divider"></div>
+
+      <div class="setting-subname">手动添加</div>
+      <div class="add-host-row">
+        <input class="add-host-input" id="addHostInput" placeholder="域名或网址，如 example.com">
+        <button class="add-host-btn" id="addHostBtn" type="button">添加</button>
+      </div>
+      <div class="field-error-inline" id="addHostError"></div>
+
+      <div id="blockListCard" style="display:none;">
+        <div class="sub-divider"></div>
+        <div class="setting-subname" id="listLabel">已屏蔽网站</div>
+        <div id="blockedList"></div>
+      </div>
+    </div>
+  </div>
 
   <!-- 修改 Header 面板 -->
   <div id="headerPanel" style="display:none;">

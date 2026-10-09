@@ -1,13 +1,20 @@
 {
   "manifest_version": 3,
   "name": "ChromeToolbox",
-  "version": "1.5.0",
+  "version": "1.7.0",
   "description": "实用的网页工具集合",
-  "permissions": ["activeTab", "scripting", "declarativeNetRequest", "storage", "contextMenus"],
+  "permissions": ["activeTab", "scripting", "declarativeNetRequest", "storage", "contextMenus", "downloads"],
   "host_permissions": ["<all_urls>"],
   "background": {
     "service_worker": "background.js"
   },
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["image-preview.js"],
+      "run_at": "document_idle"
+    }
+  ],
   "action": {
     "default_popup": "popup.html"
   },

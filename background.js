@@ -12,18 +12,30 @@ function createContextMenu() {
       title: '识别二维码',
       contexts: ['all']
     });
+    // 图片预览手动入口：右键图片 → 预览（任何触发模式下都可用）
+    chrome.contextMenus.create({
+      id: 'preview-image',
+      title: '预览图片',
+      contexts: ['image']
+    });
   });
 }
 
 chrome.runtime.onInstalled.addListener(createContextMenu);
 createContextMenu();
 
-// 右键菜单点击：注入 jsQR + 识别逻辑
+// 右键菜单点击
 chrome.contextMenus.onClicked.addListener(function(info, tab) {
+  if (info.menuItemId === 'preview-image') {
+    // 通知 content script 打开预览（找不到原图时由其按单图处理）
+    chrome.tabs.sendMessage(tab.id, { action: 'previewImage', srcUrl: info.srcUrl || null })
+      .catch(function() {});
+    return;
+  }
   injectScanner(tab.id, info.srcUrl || null);
 });
 
-// Popup 按钮触发：进入选择模式
+// Popup 按钮触发：进入选择模式；图片下载（单张/批量）
 chrome.runtime.onMessage.addListener(function(msg, sender, sendResponse) {
   if (msg.action === 'scanQR') {
     chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
@@ -31,8 +43,89 @@ chrome.runtime.onMessage.addListener(function(msg, sender, sendResponse) {
         injectScanner(tabs[0].id, null);
       }
     });
+  } else if (msg.action === 'downloadImages') {
+    var tabId = sender.tab ? sender.tab.id : null;
+    downloadAll(msg.items, tabId).then(function(r) { sendResponse(r); });
+    return true; // 异步响应
   }
 });
+
+/* ===== 图片下载（content script 发起，后台串行执行）===== */
+
+var EXT_BY_TYPE = {
+  'image/jpeg': '.jpg', 'image/jpg': '.jpg', 'image/png': '.png',
+  'image/gif': '.gif', 'image/webp': '.webp', 'image/bmp': '.bmp',
+  'image/avif': '.avif', 'image/svg+xml': '.svg', 'image/x-icon': '.ico',
+  'image/vnd.microsoft.icon': '.ico'
+};
+
+function extFromType(type) {
+  type = (type || '').split(';')[0].trim().toLowerCase();
+  return EXT_BY_TYPE[type] || '';
+}
+
+function extFromUrl(url) {
+  var path = (url || '').split(/[?#]/)[0];
+  var m = path.match(/\.(jpe?g|png|gif|webp|bmp|avif|svg|ico)$/i);
+  return m ? '.' + m[1].toLowerCase().replace('jpeg', 'jpg') : '';
+}
+
+function chromeDownload(url, filename) {
+  return new Promise(function(resolve, reject) {
+    chrome.downloads.download(
+      { url: url, filename: filename, conflictAction: 'uniquify' },
+      function(id) {
+        if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
+        else resolve(id);
+      }
+    );
+  });
+}
+
+// 下载单张：后台 fetch 无 CORS 限制，可拿到真实 Content-Type 补扩展名；
+// 优先用 blob URL（避免二次请求），不支持时降级为浏览器直接下载原始 URL
+function downloadOne(url, nameBase) {
+  var blob = null, type = '';
+  return fetch(url, { credentials: 'include' }).then(function(res) {
+    if (!res.ok) return;
+    type = res.headers.get('content-type') || '';
+    return res.blob().then(function(b) { blob = b; });
+  }).catch(function() {}).then(function() {
+    var filename;
+    if (/\.[a-z0-9]{2,5}$/i.test(nameBase)) {
+      filename = nameBase;
+    } else {
+      filename = nameBase + (extFromType(type) || extFromUrl(url) || '');
+    }
+
+    if (blob && typeof URL.createObjectURL === 'function') {
+      var blobUrl = URL.createObjectURL(blob);
+      return chromeDownload(blobUrl, filename).then(function() {
+        setTimeout(function() { try { URL.revokeObjectURL(blobUrl); } catch (e) {} }, 120000);
+      }).catch(function() {
+        return chromeDownload(url, filename);
+      });
+    }
+    return chromeDownload(url, filename);
+  });
+}
+
+// 串行下载全部，逐张回传进度
+function downloadAll(items, tabId) {
+  var ok = 0, fail = 0;
+  var p = Promise.resolve();
+  items.forEach(function(item, i) {
+    p = p.then(function() {
+      return downloadOne(item.url, item.name).then(function() { ok++; }, function() { fail++; });
+    }).then(function() {
+      if (tabId == null) return;
+      return chrome.tabs.sendMessage(tabId, {
+        action: 'downloadProgress', done: i + 1, total: items.length, ok: ok, fail: fail
+      }).catch(function() {});
+    });
+  });
+  return p.then(function() { return { ok: ok, fail: fail }; });
+}
 
 // 注入 jsQR 库 + 扫描逻辑到目标页面
 function injectScanner(tabId, srcUrl) {
