@@ -86,6 +86,32 @@
       display: flex;
       color: #0a0a0a;
     }
+    .tool-btn .tool-label {
+      flex: 1;
+      min-width: 0;
+    }
+    /* 修改 Header 卡片右侧：当前生效分组的单字简称 */
+    .header-brief {
+      flex: 0 0 auto;
+      display: flex;
+      align-items: center;
+    }
+    .header-brief .brief-char {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: #f0f0f0;
+      color: #0a0a0a;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .header-brief.off .brief-char {
+      background: #f5f5f5;
+      color: #a3a3a3;
+    }
 
     /* ===== 查看密码结果卡片 ===== */
     .result {
@@ -507,8 +533,8 @@
       align-items: flex-start;
     }
     .sidebar {
-      flex: 0 0 140px;
-      width: 140px;
+      flex: 0 0 92px;
+      width: 92px;
       min-width: 0;
       display: flex;
       flex-direction: column;
@@ -538,94 +564,91 @@
     .group-list {
       display: flex;
       flex-direction: column;
-      gap: 2px;
+      align-items: center;
+      gap: 10px;
       max-height: 360px;
       overflow-y: auto;
-      scrollbar-gutter: stable;
       min-width: 0;
+      padding: 4px 0;
     }
+    /* 分组只显示一个字的头像：默认取名称首字，可在右侧设置简称 */
     .group-item {
+      position: relative;
+      flex: 0 0 auto;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
       display: flex;
       align-items: center;
-      gap: 4px;
-      padding: 8px 8px 8px 10px;
-      border-radius: 10px;
-      background: transparent;
-      font-size: 13px;
-      font-weight: 500;
+      justify-content: center;
+      background: #ffffff;
+      border: 1px solid #e5e5e5;
+      font-size: 15px;
+      font-weight: 600;
       color: #0a0a0a;
       cursor: pointer;
-      transition: background 0.12s;
+      transition: background 0.12s, color 0.12s, border-color 0.12s;
     }
     .group-item:hover {
       background: #f0f0f0;
     }
     .group-item.active {
       background: #0a0a0a;
+      border-color: #0a0a0a;
       color: #fafafa;
     }
-    .group-item .group-label {
-      flex: 1;
-      min-width: 0;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+    .group-avatar {
+      line-height: 1;
     }
-    /* 非生效分组右侧的规则条数；悬停时让位于删除按钮 */
+    /* 规则条数角标；悬停时让位于删除按钮 */
     .group-item .group-count {
-      flex: 0 0 auto;
-      font-size: 11px;
-      color: #a3a3a3;
-      font-weight: 400;
+      position: absolute;
+      top: -4px;
+      right: -4px;
+      min-width: 16px;
+      height: 16px;
+      padding: 0 4px;
+      border-radius: 999px;
+      background: #737373;
+      color: #ffffff;
+      font-size: 10px;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 2px solid #fafafa;
+      box-sizing: border-box;
+    }
+    .group-item.active .group-count {
+      background: #0a0a0a;
     }
     .group-item:hover .group-count {
       display: none;
     }
-    /* 当前生效分组的「生效中」徽标（绿点 + 文字，仅选中组显示） */
-    .group-item .group-badge {
-      display: none;
-      align-items: center;
-      gap: 4px;
-      flex: 0 0 auto;
-      font-size: 11px;
-      font-weight: 500;
-      color: rgba(250,250,250,0.85);
-      white-space: nowrap;
-    }
-    .group-item .group-badge::before {
-      content: '';
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: #34a853;
-    }
-    .group-item.active .group-badge {
-      display: inline-flex;
-    }
-    /* 停用状态下当前分组徽标变灰 */
-    .group-item .group-badge.off {
-      color: rgba(250,250,250,0.6);
-    }
-    .group-item .group-badge.off::before {
-      background: #a3a3a3;
-    }
-    /* 删除按钮：visibility 切换保持占位，避免出现/消失时挤压分组名 */
+    /* 删除按钮：悬停头像时右上角红色圆钮 */
     .group-item .group-del {
-      display: inline-flex;
+      position: absolute;
+      top: -5px;
+      right: -5px;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      border: none;
+      background: #e7000b;
+      color: #ffffff;
+      cursor: pointer;
+      padding: 0;
+      display: flex;
       visibility: hidden;
-      flex: 0 0 auto;
       align-items: center;
       justify-content: center;
-      border: none;
-      background: none;
-      cursor: pointer;
-      padding: 3px;
-      border-radius: 6px;
-      color: #737373;
     }
-    .group-item:hover .group-del,
-    .group-item.active .group-del {
+    .group-item:hover .group-del {
       visibility: visible;
+    }
+    .group-item .group-del svg {
+      width: 10px;
+      height: 10px;
     }
     .group-item.active .group-del {
       color: rgba(250,250,250,0.7);
@@ -644,9 +667,9 @@
       border: 1px solid #e5e5e5;
       background: transparent;
       border-radius: 10px;
-      padding: 8px;
+      padding: 8px 4px;
       font-family: inherit;
-      font-size: 13px;
+      font-size: 12px;
       font-weight: 500;
       color: #737373;
       cursor: pointer;
@@ -681,6 +704,22 @@
       outline: none;
       border-color: #0a0a0a;
       background: #ffffff;
+    }
+    /* 分组名称 + 单字简称同一行 */
+    .group-input-row {
+      display: flex;
+      gap: 8px;
+    }
+    .group-input-row .group-input {
+      flex: 1;
+      min-width: 0;
+    }
+    .group-input.group-short {
+      flex: 0 0 56px;
+      width: 56px;
+      text-align: center;
+      padding-left: 0;
+      padding-right: 0;
     }
 
     .field-hint {
@@ -918,9 +957,15 @@
     <button class="tool-btn" id="showPasswords">
       <span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></span> 查看密码
     </button>
-    <button class="tool-btn" id="editHeaders">
-      <span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r="1" fill="currentColor"/></svg></span> 修改 Header
-    </button>
+    <div class="tool-btn" id="editHeaders" role="button" tabindex="0">
+      <span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r="1" fill="currentColor"/></svg></span>
+      <span class="tool-label">修改 Header</span>
+      <span class="header-brief" id="headerActiveBrief" title=""><span class="brief-char">·</span></span>
+      <label class="switch" id="headerSwitchOuter" title="总开关：停用后不修改任何 Header">
+        <input type="checkbox" id="headerEnabledOuter">
+        <span class="slider"></span>
+      </label>
+    </div>
     <button class="tool-btn" id="scanQR">
       <span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="5" height="5" x="3" y="3" rx="1"/><path d="M3 8h5M8 3v5M16 3h5v5M3 16v5h5M21 16v5h-5"/><path d="M14 14h.01M14 17h.01M17 14h.01M17 17h.01M14 20h.01M17 20h.01"/></svg></span> 识别二维码
     </button>
@@ -1052,10 +1097,13 @@
 
       <div class="sidebar-main">
         <div id="groupEditView">
-          <input id="groupName" class="group-input" placeholder="分组名称">
+          <div class="group-input-row">
+            <input id="groupName" class="group-input" placeholder="分组名称">
+            <input id="groupShort" class="group-input group-short" maxlength="1" placeholder="简称" title="分组简称（一个字），留空则取名称首字">
+          </div>
           <input id="groupUrl" class="group-input" placeholder="本组 URL 过滤（选填），如 ||example.com">
 
-          <div class="field-hint">URL 留空对所有网站生效；总开关开启时点击左侧分组立即生效，停用时规则保留但不发送</div>
+          <div class="field-hint">简称取一个字作为头像，留空自动取名称首字；URL 留空对所有网站生效</div>
 
           <div class="rule-list" id="ruleList"></div>
 

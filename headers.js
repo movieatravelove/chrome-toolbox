@@ -45,12 +45,17 @@ var groupListEl = document.getElementById('groupList');
 var headerEnabledInput = document.getElementById('headerEnabled');
 var headerEnabledText = document.getElementById('headerEnabledText');
 var groupNameInput = document.getElementById('groupName');
+var groupShortInput = document.getElementById('groupShort');
 var groupUrlInput = document.getElementById('groupUrl');
+var headerEnabledOuterInput = document.getElementById('headerEnabledOuter');
+var headerActiveBrief = document.getElementById('headerActiveBrief');
 var ruleList = document.getElementById('ruleList');
 var statusEl = document.getElementById('headerStatus');
 
-// 内存中的完整配置：{ enabled, activeGroupId, groups: [{ id, name, urlFilter, entries }] }
+// 内存中的完整配置：{ enabled, activeGroupId, groups: [{ id, name, short, urlFilter, entries }] }
 var state = { enabled: true, activeGroupId: null, groups: [] };
+// 面板是否打开过：避免弹窗启动时的异步读取在面板操作后覆盖 state
+var panelLoaded = false;
 
 document.getElementById('editHeaders').addEventListener('click', openPanel);
 document.getElementById('backFromHeaders').addEventListener('click', closePanel);
@@ -68,6 +73,23 @@ document.getElementById('saveRules').addEventListener('click', function() {
 document.getElementById('addGroup').addEventListener('click', addGroup);
 headerEnabledInput.addEventListener('change', function() {
   setEnabled(headerEnabledInput.checked);
+});
+// 外层卡片上的总开关：点击不冒泡到卡片（避免同时打开面板）
+document.getElementById('headerSwitchOuter').addEventListener('click', function(e) {
+  e.stopPropagation();
+});
+headerEnabledOuterInput.addEventListener('change', function() {
+  setEnabled(headerEnabledOuterInput.checked);
+});
+// 卡片由 button 改为 div，补回键盘可访问性
+document.getElementById('editHeaders').addEventListener('keydown', function(e) {
+  if (e.target !== e.currentTarget) {
+    return;
+  }
+  if (e.key === 'Enter' || e.key === ' ') {
+    e.preventDefault();
+    openPanel();
+  }
 });
 
 // 导入功能：粘贴 JSON 或 Key-Value 文本，自动识别格式后追加到当前分组
@@ -100,12 +122,32 @@ groupListEl.addEventListener('click', function(e) {
   switchGroup(item.dataset.groupId);
 });
 
-// 编辑分组名称时同步更新侧边栏当前项文案
+// 编辑分组名称时同步更新当前项头像（无手动简称时取首字）与外层卡片简称
 groupNameInput.addEventListener('input', function() {
-  var label = groupListEl.querySelector('.group-item.active .group-label');
-  if (label) {
-    label.textContent = groupNameInput.value.trim() || '未命名分组';
+  var group = getActiveGroup();
+  if (!group) {
+    return;
   }
+  group.name = groupNameInput.value.trim() || '未命名分组';
+  var avatar = groupListEl.querySelector('.group-item.active .group-avatar');
+  if (avatar) {
+    avatar.textContent = getGroupShort(group);
+  }
+  renderOuterCard();
+});
+
+// 编辑简称（一个字）时同步更新头像与外层卡片简称
+groupShortInput.addEventListener('input', function() {
+  var group = getActiveGroup();
+  if (!group) {
+    return;
+  }
+  group.short = groupShortInput.value.trim().charAt(0) || '';
+  var avatar = groupListEl.querySelector('.group-item.active .group-avatar');
+  if (avatar) {
+    avatar.textContent = getGroupShort(group);
+  }
+  renderOuterCard();
 });
 
 // 事件委托：删除行、切换操作时联动值输入框（图标为内联 SVG，需用 closest 定位按钮）
@@ -125,13 +167,23 @@ function genGroupId() {
   return 'g_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 }
 
-function createGroup(name, urlFilter, entries) {
+function createGroup(name, urlFilter, entries, short) {
   return {
     id: genGroupId(),
     name: name || '未命名分组',
+    short: short || '',
     urlFilter: urlFilter || '',
     entries: Array.isArray(entries) ? entries : []
   };
+}
+
+// 分组头像文字：优先手动设置的单字简称，否则取名称首字
+function getGroupShort(g) {
+  var short = (g.short || '').trim();
+  if (short) {
+    return short.charAt(0);
+  }
+  return (g.name || '未命名分组').trim().charAt(0) || '?';
 }
 
 // 检查扩展是否具备所需 API（manifest 权限更新后若未重新加载扩展，API 会是 undefined）
@@ -146,6 +198,7 @@ function getApiError() {
 }
 
 async function openPanel() {
+  panelLoaded = true;
   toolList.style.display = 'none';
   resultDiv.classList.remove('show');
   headerPanel.style.display = 'block';
@@ -184,6 +237,7 @@ function closePanel() {
   toolList.style.display = '';
   document.body.classList.remove('panel-open');
   document.body.classList.remove('headers-disabled');
+  renderOuterCard();
 }
 
 // 读取配置；兼容 v1（{ enabled, entries }）结构并迁移为分组结构
@@ -199,6 +253,7 @@ async function loadConfig() {
     return {
       id: String(g.id || genGroupId()),
       name: g.name || '未命名分组',
+      short: typeof g.short === 'string' ? g.short.trim().charAt(0) : '',
       urlFilter: g.urlFilter || '',
       entries: Array.isArray(g.entries) ? g.entries : []
     };
@@ -268,7 +323,7 @@ function persistConfig() {
       enabled: state.enabled !== false,
       activeGroupId: state.activeGroupId,
       groups: state.groups.map(function(g) {
-        return { id: g.id, name: g.name, urlFilter: g.urlFilter, entries: g.entries };
+        return { id: g.id, name: g.name, short: g.short || '', urlFilter: g.urlFilter, entries: g.entries };
       })
     }
   });
@@ -276,10 +331,41 @@ function persistConfig() {
 
 // ===== 总开关 =====
 function renderEnabledUI() {
-  headerEnabledInput.checked = state.enabled !== false;
-  headerEnabledText.textContent = state.enabled ? '已启用' : '已停用';
-  document.body.classList.toggle('headers-disabled', !state.enabled);
+  var on = state.enabled !== false;
+  headerEnabledInput.checked = on;
+  headerEnabledOuterInput.checked = on;
+  headerEnabledText.textContent = on ? '已启用' : '已停用';
+  document.body.classList.toggle('headers-disabled', !on);
+  renderOuterCard();
 }
+
+// 外层卡片右侧：总开关状态 + 当前生效分组的单字简称
+function renderOuterCard() {
+  var on = state.enabled !== false;
+  headerEnabledOuterInput.checked = on;
+  var group = state.groups.length ? getActiveGroup() : null;
+  var charEl = headerActiveBrief.querySelector('.brief-char');
+  charEl.textContent = group ? getGroupShort(group) : '·';
+  headerActiveBrief.classList.toggle('off', !on);
+  headerActiveBrief.title = group
+    ? (on ? '当前生效分组：' : '已停用（规则与分组保留）：') + group.name
+    : '';
+}
+
+// 弹窗打开时（面板未开）读取配置，渲染外层卡片上的开关与简称
+async function initOuterCard() {
+  try {
+    var config = await loadConfig();
+    // 若期间面板已打开过，则一律以面板内的 state 为准
+    if (!panelLoaded && headerPanel.style.display === 'none') {
+      state = config;
+    }
+  } catch (error) {
+    // 读取失败时外层卡片保持默认外观
+  }
+  renderOuterCard();
+}
+initOuterCard();
 
 async function setEnabled(on) {
   state.enabled = !!on;
@@ -310,33 +396,34 @@ function renderGroupList() {
     var item = document.createElement('div');
     item.className = 'group-item' + (g.id === state.activeGroupId ? ' active' : '');
     item.dataset.groupId = g.id;
-    item.title = g.name || '未命名分组';
+    item.title = (g.name || '未命名分组') +
+      '（' + (g.entries.length ? g.entries.length + ' 条规则' : '空') + '）';
 
-    var label = document.createElement('span');
-    label.className = 'group-label';
-    label.textContent = g.name || '未命名分组';
+    var avatar = document.createElement('span');
+    avatar.className = 'group-avatar';
+    avatar.textContent = getGroupShort(g);
 
-    // 非生效组显示规则条数；生效组显示「生效中」徽标
+    // 规则条数角标（无规则不显示；悬停头像时让位于删除钮）
     var count = document.createElement('span');
     count.className = 'group-count';
-    count.textContent = g.entries.length ? g.entries.length + ' 条' : '空';
-
-    // 选中组：启用显示绿色「生效中」，停用显示灰色「已停用」
-    var badge = document.createElement('span');
-    badge.className = 'group-badge' + (state.enabled ? '' : ' off');
-    badge.textContent = state.enabled ? '生效中' : '已停用';
+    count.textContent = g.entries.length > 99 ? '99+' : String(g.entries.length);
+    if (!g.entries.length) {
+      count.style.display = 'none';
+    }
 
     var del = document.createElement('button');
     del.className = 'group-del';
     del.title = '删除此分组';
     del.innerHTML = ICON_X;
 
-    item.appendChild(label);
+    item.appendChild(avatar);
     item.appendChild(count);
-    item.appendChild(badge);
     item.appendChild(del);
     groupListEl.appendChild(item);
   });
+
+  // 分组变化同步外层卡片的当前生效简称
+  renderOuterCard();
 }
 
 // 切换到指定分组：先把当前 DOM 的编辑内容收回内存；启用时选中即生效，停用时仅切换视图
@@ -359,6 +446,7 @@ function renderGroup() {
   var group = getActiveGroup();
   state.activeGroupId = group.id;
   groupNameInput.value = group.name;
+  groupShortInput.value = group.short || '';
   groupUrlInput.value = group.urlFilter;
 
   ruleList.innerHTML = '';
@@ -501,6 +589,7 @@ function syncActiveGroupFromDOM() {
     return;
   }
   group.name = groupNameInput.value.trim() || '未命名分组';
+  group.short = groupShortInput.value.trim().charAt(0) || '';
   group.urlFilter = groupUrlInput.value.trim();
   group.entries = collectRawEntries();
 }
@@ -570,6 +659,30 @@ function checkForbiddenHeader(direction, name) {
     }
   }
   return '';
+}
+
+// 面板未打开时（外层总开关启用）直接校验内存中的条目，无 DOM 行可标红
+function validateMemoryEntries(entries) {
+  var result = [];
+  var hasError = false;
+
+  (entries || []).forEach(function(entry) {
+    if (!entry.name) {
+      return;
+    }
+    if (!VALID_HEADER_NAME.test(entry.name)) {
+      hasError = true;
+    }
+    if (entry.operation !== 'remove' && !String(entry.value || '').trim()) {
+      hasError = true;
+    }
+    if (checkForbiddenHeader(entry.direction, entry.name)) {
+      hasError = true;
+    }
+    result.push({ row: null, entry: entry });
+  });
+
+  return { entries: result, hasError: hasError };
 }
 
 // 校验当前分组的规则行，返回带 row 引用的条目列表；有错误时 hasError 为 true
@@ -644,10 +757,13 @@ async function applyCurrentGroup() {
 
   setStatus('应用中...', '');
 
-  // 将编辑内容收回内存，同时校验当前分组规则行
-  syncActiveGroupFromDOM();
+  // 将编辑内容收回内存，同时校验规则行；外层总开关启用时面板关闭，只能基于内存条目
+  var panelIsOpen = headerPanel.style.display !== 'none';
+  if (panelIsOpen) {
+    syncActiveGroupFromDOM();
+  }
   var group = getActiveGroup();
-  var validated = validateRows();
+  var validated = panelIsOpen ? validateRows() : validateMemoryEntries(group.entries);
 
   try {
     // 清除本工具此前写入的全部动态规则：选中分组即为唯一生效来源
@@ -687,7 +803,10 @@ async function applyCurrentGroup() {
         successCount++;
       } else {
         var reason = result.reason && result.reason.message ? result.reason.message : String(result.reason);
-        setRowError(validated.entries[index].row, '浏览器拒绝此规则：' + reason);
+        // 面板关闭时没有 DOM 行可标红，失败数仅体现在状态栏文案中
+        if (validated.entries[index].row) {
+          setRowError(validated.entries[index].row, '浏览器拒绝此规则：' + reason);
+        }
       }
     });
 
