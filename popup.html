@@ -541,7 +541,8 @@
       gap: 6px;
       background: #fafafa;
       border-radius: 18px;
-      padding: 8px;
+      /* 两侧各留 5px 给悬出头像的角标/删除钮（列表裁剪区内需容下 50px） */
+      padding: 8px 5px;
       position: relative;
     }
     /* 侧边栏与主区之间的分割线（位于 gap 正中） */
@@ -570,18 +571,13 @@
       overflow-y: auto;
       overflow-x: hidden;
       min-width: 0;
-      /* 右侧留出角标/删除钮与细滚动条的空间，避免覆盖头像内容 */
-      padding: 4px 9px 8px 1px;
+      /* 上下各留少量空间给首/末项悬出的角标与删除钮 */
+      padding: 5px 0 8px;
     }
+    /* 覆盖式滚动条：不占用布局宽度（否则会挤压头像导致两端被裁），滚轮照常滚动 */
     .group-list::-webkit-scrollbar {
-      width: 5px;
-    }
-    .group-list::-webkit-scrollbar-thumb {
-      background: #d4d4d4;
-      border-radius: 99px;
-    }
-    .group-list::-webkit-scrollbar-track {
-      background: transparent;
+      width: 0;
+      height: 0;
     }
     /* 分组只显示一个字的头像：默认取名称首字，可在右侧设置简称 */
     .group-item {
@@ -1117,14 +1113,13 @@
           </div>
           <input id="groupUrl" class="group-input" placeholder="本组 URL 过滤（选填），如 ||example.com">
 
-          <div class="field-hint">简称取一个字作为头像，留空自动取名称首字；URL 留空对所有网站生效</div>
+          <div class="field-hint">简称取一个字作为头像，留空自动取名称首字；输入自动保存并立即生效，URL 留空对所有网站生效</div>
 
           <div class="rule-list" id="ruleList"></div>
 
           <div class="panel-actions">
             <button class="action-btn secondary" id="addRule"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg> 添加一条</button>
             <button class="action-btn secondary" id="importBtn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg> 导入</button>
-            <button class="action-btn primary" id="saveRules">应用当前分组</button>
           </div>
 
           <!-- 导入区：粘贴 JSON 或 Key-Value 文本，自动识别格式 -->

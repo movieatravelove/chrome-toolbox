@@ -62,14 +62,6 @@ document.getElementById('backFromHeaders').addEventListener('click', closePanel)
 document.getElementById('addRule').addEventListener('click', function() {
   addRow({});
 });
-document.getElementById('saveRules').addEventListener('click', function() {
-  // 停用时点「应用」等价于重新开启并应用当前分组
-  if (!state.enabled) {
-    setEnabled(true);
-  } else {
-    applyCurrentGroup();
-  }
-});
 document.getElementById('addGroup').addEventListener('click', addGroup);
 headerEnabledInput.addEventListener('change', function() {
   setEnabled(headerEnabledInput.checked);
@@ -134,6 +126,7 @@ groupNameInput.addEventListener('input', function() {
     avatar.textContent = getGroupShort(group);
   }
   renderOuterCard();
+  scheduleAutoSave();
 });
 
 // 编辑简称（一个字）时同步更新头像与外层卡片简称
@@ -148,6 +141,7 @@ groupShortInput.addEventListener('input', function() {
     avatar.textContent = getGroupShort(group);
   }
   renderOuterCard();
+  scheduleAutoSave();
 });
 
 // 事件委托：删除行、切换操作时联动值输入框（图标为内联 SVG，需用 closest 定位按钮）
@@ -161,7 +155,34 @@ ruleList.addEventListener('change', function(e) {
   if (e.target.classList.contains('operation-select')) {
     syncRowState(e.target.closest('.rule-row'));
   }
+  // 方向/操作下拉切换后同样自动保存生效
+  scheduleAutoSave();
 });
+// 规则内容（Key / Value / 备注）输入后防抖自动保存
+ruleList.addEventListener('input', function() {
+  scheduleAutoSave();
+});
+// 组级 URL 过滤输入后防抖自动保存
+groupUrlInput.addEventListener('input', function() {
+  scheduleAutoSave();
+});
+
+// ===== 输入自动保存：停顿后自动应用，无需点「应用」按钮 =====
+var AUTO_SAVE_DELAY = 450;
+var autoSaveTimer = null;
+function scheduleAutoSave() {
+  clearTimeout(autoSaveTimer);
+  autoSaveTimer = setTimeout(function() {
+    syncActiveGroupFromDOM();
+    renderGroupList(); // 刷新头像角标条数与简称
+    if (state.enabled === false) {
+      // 停用时只保存配置，不写浏览器规则，开启后自动生效
+      persistConfig();
+      return;
+    }
+    applyCurrentGroup();
+  }, AUTO_SAVE_DELAY);
+}
 
 function genGroupId() {
   return 'g_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -509,6 +530,8 @@ function removeRow(btn) {
   if (ruleList.querySelectorAll('.rule-row').length === 0) {
     addRow({});
   }
+  // 删除后立即自动保存生效
+  scheduleAutoSave();
 }
 
 // 选择不同操作时联动：删除隐藏 value，同时更新操作说明
@@ -672,34 +695,49 @@ function checkForbiddenHeader(direction, name) {
   return '';
 }
 
+// 校验单条规则：返回 '' 可生效，'pending' 填写中（缺值，暂不生效不标红），其余为硬错误文案
+function checkEntry(entry) {
+  if (!VALID_HEADER_NAME.test(entry.name)) {
+    return 'Header 名称含有非法字符';
+  }
+  var forbidden = checkForbiddenHeader(entry.direction, entry.name);
+  if (forbidden) {
+    return forbidden;
+  }
+  if (entry.operation !== 'remove' && !String(entry.value || '').trim()) {
+    return 'pending';
+  }
+  return '';
+}
+
 // 面板未打开时（外层总开关启用）直接校验内存中的条目，无 DOM 行可标红
 function validateMemoryEntries(entries) {
-  var result = [];
-  var hasError = false;
+  var valid = [];
+  var pendingCount = 0;
+  var errorCount = 0;
 
   (entries || []).forEach(function(entry) {
     if (!entry.name) {
       return;
     }
-    if (!VALID_HEADER_NAME.test(entry.name)) {
-      hasError = true;
+    var error = checkEntry(entry);
+    if (error === 'pending') {
+      pendingCount++;
+    } else if (error) {
+      errorCount++;
+    } else {
+      valid.push({ row: null, entry: entry });
     }
-    if (entry.operation !== 'remove' && !String(entry.value || '').trim()) {
-      hasError = true;
-    }
-    if (checkForbiddenHeader(entry.direction, entry.name)) {
-      hasError = true;
-    }
-    result.push({ row: null, entry: entry });
   });
 
-  return { entries: result, hasError: hasError };
+  return { valid: valid, pendingCount: pendingCount, errorCount: errorCount };
 }
 
-// 校验当前分组的规则行，返回带 row 引用的条目列表；有错误时 hasError 为 true
+// 校验当前分组的规则行：可生效条目放入 valid，缺值行计入 pending（静默），硬错误标红
 function validateRows() {
-  var entries = [];
-  var hasError = false;
+  var valid = [];
+  var pendingCount = 0;
+  var errorCount = 0;
 
   ruleList.querySelectorAll('.rule-row').forEach(function(row) {
     var entry = readRow(row);
@@ -707,24 +745,21 @@ function validateRows() {
       return; // 空行丢弃
     }
 
-    if (!VALID_HEADER_NAME.test(entry.name)) {
-      setRowError(row, 'Header 名称含有非法字符');
-      hasError = true;
+    var error = checkEntry(entry);
+    if (error === 'pending') {
+      // 正在填写 Value：暂不生效也不标红打扰
+      pendingCount++;
+      return;
     }
-    if (entry.operation !== 'remove' && !entry.value.trim()) {
-      setRowError(row, '「' + (entry.operation === 'set' ? '设置' : '追加') + '」操作必须填写 Header 值');
-      hasError = true;
+    if (error) {
+      setRowError(row, error);
+      errorCount++;
+      return;
     }
-    var forbidden = checkForbiddenHeader(entry.direction, entry.name);
-    if (forbidden) {
-      setRowError(row, forbidden);
-      hasError = true;
-    }
-
-    entries.push({ row: row, entry: entry });
+    valid.push({ row: row, entry: entry });
   });
 
-  return { entries: entries, hasError: hasError };
+  return { valid: valid, pendingCount: pendingCount, errorCount: errorCount };
 }
 
 // 由条目构造一条 DNR 动态规则，URL 过滤在分组级别统一生效
@@ -787,22 +822,25 @@ async function applyCurrentGroup() {
     // 持久化全部分组配置及当前选中组
     await persistConfig();
 
-    if (validated.hasError) {
-      setStatus('分组「' + group.name + '」有无效规则，已清空 Header 修改，请修正标红项', 'error');
-      return;
-    }
     if (group.urlFilter && !VALID_URL_FILTER.test(group.urlFilter)) {
-      setStatus('当前分组的 URL 过滤含有非法字符，已清空 Header 修改', 'error');
+      setStatus('当前分组的 URL 过滤含有非法字符，已暂停该组 Header 修改', 'error');
       return;
     }
 
-    if (validated.entries.length === 0) {
-      setStatus('已生效：分组「' + group.name + '」暂无规则', 'success');
+    // 填写中的行暂不生效；无任何可生效规则时给出对应提示
+    if (validated.valid.length === 0) {
+      if (validated.pendingCount > 0) {
+        setStatus('已自动保存：' + validated.pendingCount + ' 条填写中，补充 Value 后自动生效', '');
+      } else if (validated.errorCount > 0) {
+        setStatus(validated.errorCount + ' 条无效规则（见行内提示），修正后自动生效', 'error');
+      } else {
+        setStatus('已生效：分组「' + group.name + '」暂无规则', 'success');
+      }
       return;
     }
 
-    // 仅写入当前选中分组的规则；逐条写入，单条被 Chrome 拒绝不影响其他规则
-    var results = await Promise.allSettled(validated.entries.map(function(item, index) {
+    // 仅写入校验通过的规则；逐条写入，单条被 Chrome 拒绝不影响其他规则
+    var results = await Promise.allSettled(validated.valid.map(function(item, index) {
       return chrome.declarativeNetRequest.updateDynamicRules({
         addRules: [buildDynamicRule(item.entry, index, group.urlFilter)]
       });
@@ -815,17 +853,24 @@ async function applyCurrentGroup() {
       } else {
         var reason = result.reason && result.reason.message ? result.reason.message : String(result.reason);
         // 面板关闭时没有 DOM 行可标红，失败数仅体现在状态栏文案中
-        if (validated.entries[index].row) {
-          setRowError(validated.entries[index].row, '浏览器拒绝此规则：' + reason);
+        if (validated.valid[index].row) {
+          setRowError(validated.valid[index].row, '浏览器拒绝此规则：' + reason);
         }
       }
     });
 
-    if (successCount === validated.entries.length) {
-      setStatus('已生效：分组「' + group.name + '」共 ' + successCount + ' 条规则', 'success');
-    } else {
-      setStatus('已生效 ' + successCount + ' 条，' + (validated.entries.length - successCount) + ' 条失败（见行内提示）', 'error');
+    var rejected = validated.valid.length - successCount;
+    var parts = ['已自动保存并生效 ' + successCount + ' 条'];
+    if (rejected > 0) {
+      parts.push(rejected + ' 条被浏览器拒绝');
     }
+    if (validated.pendingCount > 0) {
+      parts.push(validated.pendingCount + ' 条填写中');
+    }
+    if (validated.errorCount > 0) {
+      parts.push(validated.errorCount + ' 条无效');
+    }
+    setStatus(parts.join('，'), (rejected > 0 || validated.errorCount > 0) ? 'error' : 'success');
   } catch (error) {
     setStatus('应用失败：' + error.message, 'error');
   }
@@ -888,7 +933,7 @@ function parseKeyValueImport(text) {
   return { entries: entries, skipped: skipped };
 }
 
-function importEntries() {
+async function importEntries() {
   var text = importText.value.trim();
   if (!text) {
     setStatus('请先粘贴要导入的内容', 'error');
@@ -932,9 +977,11 @@ function importEntries() {
   importArea.style.display = 'none';
   importText.value = '';
 
-  var message = '已导入 ' + valid.length + ' 条规则，点「应用当前分组」生效';
+  // 导入后自动保存生效；状态栏由 applyCurrentGroup 统一给出
+  await applyCurrentGroup();
   if (skipped > 0) {
-    message += '（跳过 ' + skipped + ' 行无法识别的内容）';
+    var isError = statusEl.classList.contains('error');
+    setStatus(statusEl.textContent + '（导入时跳过 ' + skipped + ' 行无法识别的内容）',
+      isError ? 'error' : 'success');
   }
-  setStatus(message, 'success');
 }
