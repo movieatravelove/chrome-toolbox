@@ -531,6 +531,12 @@ function syncRowState(row) {
 // 新建分组：先保存当前分组的编辑内容，再创建并切换到空分组（启用时选中即生效）
 async function addGroup() {
   syncActiveGroupFromDOM();
+  // 空分组最多保留 3 个，超出时提示先整理已有分组
+  var emptyCount = state.groups.filter(function(g) { return g.entries.length === 0; }).length;
+  if (emptyCount >= 3) {
+    setStatus('空分组最多保留 3 个：请先为已有空分组添加规则，或删除后再新建', 'error');
+    return;
+  }
   var group = createGroup('新分组 ' + (state.groups.length + 1), '', []);
   state.groups.push(group);
   state.activeGroupId = group.id;
@@ -552,11 +558,16 @@ function removeGroup(itemEl) {
     return;
   }
   var target = state.groups[index];
-  if (!window.confirm('确定删除分组「' + (target.name || '未命名分组') + '」？')) {
+  var isActive = targetId === state.activeGroupId;
+  // 当前组以 DOM 中实际填写的规则数为准（可能有未保存的编辑）
+  var ruleCount = isActive ? collectRawEntries().length : target.entries.length;
+  // 空分组直接删除不打扰；含规则的分组仍需确认
+  if (ruleCount > 0 &&
+      !window.confirm('分组「' + (target.name || '未命名分组') + '」含 ' +
+        ruleCount + ' 条规则，确定删除？')) {
     return;
   }
 
-  var isActive = targetId === state.activeGroupId;
   if (!isActive) {
     syncActiveGroupFromDOM();
   }

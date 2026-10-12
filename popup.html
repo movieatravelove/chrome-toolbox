@@ -568,8 +568,20 @@
       gap: 10px;
       max-height: 360px;
       overflow-y: auto;
+      overflow-x: hidden;
       min-width: 0;
-      padding: 4px 0;
+      /* 右侧留出角标/删除钮与细滚动条的空间，避免覆盖头像内容 */
+      padding: 4px 9px 8px 1px;
+    }
+    .group-list::-webkit-scrollbar {
+      width: 5px;
+    }
+    .group-list::-webkit-scrollbar-thumb {
+      background: #d4d4d4;
+      border-radius: 99px;
+    }
+    .group-list::-webkit-scrollbar-track {
+      background: transparent;
     }
     /* 分组只显示一个字的头像：默认取名称首字，可在右侧设置简称 */
     .group-item {
