@@ -533,8 +533,8 @@
       align-items: flex-start;
     }
     .sidebar {
-      flex: 0 0 92px;
-      width: 92px;
+      flex: 0 0 60px;
+      width: 60px;
       min-width: 0;
       display: flex;
       flex-direction: column;
@@ -659,25 +659,27 @@
     .group-item.active .group-del:hover {
       color: #ff5b60;
     }
+    /* 新建分组：与头像同尺寸的圆形虚线加号钮 */
     .sidebar-add {
+      align-self: center;
+      flex: 0 0 auto;
+      width: 40px;
+      height: 40px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      gap: 5px;
-      border: 1px solid #e5e5e5;
+      border: 1px dashed #c9c9c9;
       background: transparent;
-      border-radius: 10px;
-      padding: 8px 4px;
-      font-family: inherit;
-      font-size: 12px;
-      font-weight: 500;
+      border-radius: 50%;
+      padding: 0;
       color: #737373;
       cursor: pointer;
-      transition: color 0.12s, border-color 0.12s;
+      transition: color 0.12s, border-color 0.12s, background 0.12s;
     }
     .sidebar-add:hover {
       color: #0a0a0a;
       border-color: #0a0a0a;
+      background: #f0f0f0;
     }
     .sidebar-main {
       flex: 1;
@@ -977,13 +979,13 @@
       <div class="setting-name">图片预览</div>
       <div class="setting-desc">任意网页点击图片就地浮层查看</div>
     </div>
+    <button class="icon-btn" id="imageSettingsBtn" type="button" title="图片预览设置">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    </button>
     <label class="switch">
       <input type="checkbox" id="ghPreviewToggle">
       <span class="slider"></span>
     </label>
-    <button class="icon-btn" id="imageSettingsBtn" type="button" title="图片预览设置">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-    </button>
   </div>
 
   <div class="result" id="result"></div>
@@ -1092,7 +1094,7 @@
       <aside class="sidebar">
         <div class="sidebar-title">分组</div>
         <div class="group-list" id="groupList"></div>
-        <button class="sidebar-add" id="addGroup"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg> 新建分组</button>
+        <button class="sidebar-add" id="addGroup" title="新建分组"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg></button>
       </aside>
 
       <div class="sidebar-main">
