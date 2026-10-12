@@ -4,7 +4,7 @@
 var STORAGE_KEY = 'headerRules';
 var BASE_RULE_ID = 10000; // 本工具动态规则 ID 起始段
 var MAX_RULES = 5000;    // 受 DNR 动态规则上限保护
-var EMPTY_GROUP_ID = '__empty__'; // 内置空白分组：选中即停用全部 Header 修改
+var LEGACY_EMPTY_GROUP_ID = '__empty__'; // v1.8 空白分组哨兵，迁移为「总开关关闭」
 
 // 覆盖全部资源类型，保证页面、子框架、XHR/fetch、静态资源等都命中
 var RESOURCE_TYPES = [
@@ -42,23 +42,33 @@ var toolList = document.getElementById('toolList');
 var resultDiv = document.getElementById('result');
 var headerPanel = document.getElementById('headerPanel');
 var groupListEl = document.getElementById('groupList');
-var emptyGroupView = document.getElementById('emptyGroupView');
-var groupEditView = document.getElementById('groupEditView');
+var headerEnabledInput = document.getElementById('headerEnabled');
+var headerEnabledText = document.getElementById('headerEnabledText');
 var groupNameInput = document.getElementById('groupName');
 var groupUrlInput = document.getElementById('groupUrl');
 var ruleList = document.getElementById('ruleList');
 var statusEl = document.getElementById('headerStatus');
 
-// 内存中的完整配置：{ activeGroupId, groups: [{ id, name, urlFilter, entries }] }
-var state = { activeGroupId: null, groups: [] };
+// 内存中的完整配置：{ enabled, activeGroupId, groups: [{ id, name, urlFilter, entries }] }
+var state = { enabled: true, activeGroupId: null, groups: [] };
 
 document.getElementById('editHeaders').addEventListener('click', openPanel);
 document.getElementById('backFromHeaders').addEventListener('click', closePanel);
 document.getElementById('addRule').addEventListener('click', function() {
   addRow({});
 });
-document.getElementById('saveRules').addEventListener('click', applyCurrentGroup);
+document.getElementById('saveRules').addEventListener('click', function() {
+  // 停用时点「应用」等价于重新开启并应用当前分组
+  if (!state.enabled) {
+    setEnabled(true);
+  } else {
+    applyCurrentGroup();
+  }
+});
 document.getElementById('addGroup').addEventListener('click', addGroup);
+headerEnabledInput.addEventListener('change', function() {
+  setEnabled(headerEnabledInput.checked);
+});
 
 // 导入功能：粘贴 JSON 或 Key-Value 文本，自动识别格式后追加到当前分组
 var importArea = document.getElementById('importArea');
@@ -90,11 +100,8 @@ groupListEl.addEventListener('click', function(e) {
   switchGroup(item.dataset.groupId);
 });
 
-// 编辑分组名称时同步更新侧边栏当前项文案（空白分组无名称输入框）
+// 编辑分组名称时同步更新侧边栏当前项文案
 groupNameInput.addEventListener('input', function() {
-  if (state.activeGroupId === EMPTY_GROUP_ID) {
-    return;
-  }
   var label = groupListEl.querySelector('.group-item.active .group-label');
   if (label) {
     label.textContent = groupNameInput.value.trim() || '未命名分组';
@@ -147,7 +154,8 @@ async function openPanel() {
 
   var apiError = getApiError();
   if (apiError) {
-    state = { activeGroupId: null, groups: [createGroup('默认组', '', [])] };
+    state = { enabled: true, activeGroupId: null, groups: [createGroup('默认组', '', [])] };
+    renderEnabledUI();
     renderGroupList();
     renderGroup();
     setStatus(apiError, 'error');
@@ -156,10 +164,15 @@ async function openPanel() {
 
   try {
     state = await loadConfig();
+    renderEnabledUI();
     renderGroupList();
     renderGroup();
+    if (!state.enabled) {
+      setStatus('当前已停用：未修改任何 Header，开启右上角开关恢复', '');
+    }
   } catch (error) {
-    state = { activeGroupId: null, groups: [createGroup('默认组', '', [])] };
+    state = { enabled: true, activeGroupId: null, groups: [createGroup('默认组', '', [])] };
+    renderEnabledUI();
     renderGroupList();
     renderGroup();
     setStatus('读取配置失败：' + error.message, 'error');
@@ -170,6 +183,7 @@ function closePanel() {
   headerPanel.style.display = 'none';
   toolList.style.display = '';
   document.body.classList.remove('panel-open');
+  document.body.classList.remove('headers-disabled');
 }
 
 // 读取配置；兼容 v1（{ enabled, entries }）结构并迁移为分组结构
@@ -193,13 +207,19 @@ async function loadConfig() {
     groups.push(createGroup('默认组', '', []));
   }
 
+  var enabled = config.enabled !== false;
   var activeGroupId = config.activeGroupId;
-  if (activeGroupId !== EMPTY_GROUP_ID &&
-      !groups.some(function(g) { return g.id === activeGroupId; })) {
+  // v1.8 的空白分组哨兵迁移为「总开关关闭」
+  if (activeGroupId === LEGACY_EMPTY_GROUP_ID) {
+    activeGroupId = groups[0].id;
+    if (config.enabled === undefined) {
+      enabled = false;
+    }
+  } else if (!groups.some(function(g) { return g.id === activeGroupId; })) {
     activeGroupId = groups[0].id;
   }
 
-  return { activeGroupId: activeGroupId, groups: groups };
+  return { enabled: enabled, activeGroupId: activeGroupId, groups: groups };
 }
 
 // v1 配置按规则各自的 URL 过滤归并成分组
@@ -230,23 +250,22 @@ function migrateV1(old) {
   }
 
   return {
+    enabled: true,
     activeGroupId: groups[0].id,
     groups: groups
   };
 }
 
 function getActiveGroup() {
-  if (state.activeGroupId === EMPTY_GROUP_ID) {
-    return null;
-  }
   var group = state.groups.find(function(g) { return g.id === state.activeGroupId; });
   return group || state.groups[0];
 }
 
-// 持久化全部分组配置及当前选中（activeGroupId 可能是内置空白分组）
+// 持久化完整配置（总开关、选中组、全部分组）
 function persistConfig() {
   return chrome.storage.local.set({
     headerRules: {
+      enabled: state.enabled !== false,
       activeGroupId: state.activeGroupId,
       groups: state.groups.map(function(g) {
         return { id: g.id, name: g.name, urlFilter: g.urlFilter, entries: g.entries };
@@ -255,24 +274,37 @@ function persistConfig() {
   });
 }
 
-// 渲染侧边栏分组列表：置顶内置空白分组，其后为用户分组
+// ===== 总开关 =====
+function renderEnabledUI() {
+  headerEnabledInput.checked = state.enabled !== false;
+  headerEnabledText.textContent = state.enabled ? '已启用' : '已停用';
+  document.body.classList.toggle('headers-disabled', !state.enabled);
+}
+
+async function setEnabled(on) {
+  state.enabled = !!on;
+  renderEnabledUI();
+  await persistConfig();
+  if (state.enabled) {
+    await applyCurrentGroup();
+  } else {
+    try {
+      var existing = await chrome.declarativeNetRequest.getDynamicRules();
+      var oldIds = existing
+        .map(function(rule) { return rule.id; })
+        .filter(function(id) { return id >= BASE_RULE_ID && id < BASE_RULE_ID + MAX_RULES; });
+      await chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds: oldIds });
+      setStatus('已停用：当前不修改任何 Header，规则与分组均已保留', '');
+      renderGroupList();
+    } catch (error) {
+      setStatus('停用失败：' + error.message, 'error');
+    }
+  }
+}
+
+// 渲染侧边栏分组列表
 function renderGroupList() {
   groupListEl.innerHTML = '';
-
-  var emptyItem = document.createElement('div');
-  emptyItem.className = 'group-item group-empty' +
-    (state.activeGroupId === EMPTY_GROUP_ID ? ' active' : '');
-  emptyItem.dataset.groupId = EMPTY_GROUP_ID;
-  emptyItem.title = '空白分组：不修改任何 Header';
-  var emptyLabel = document.createElement('span');
-  emptyLabel.className = 'group-label';
-  emptyLabel.textContent = '空白（不修改）';
-  var emptyBadge = document.createElement('span');
-  emptyBadge.className = 'group-badge';
-  emptyBadge.textContent = '生效中';
-  emptyItem.appendChild(emptyLabel);
-  emptyItem.appendChild(emptyBadge);
-  groupListEl.appendChild(emptyItem);
 
   state.groups.forEach(function(g) {
     var item = document.createElement('div');
@@ -289,9 +321,10 @@ function renderGroupList() {
     count.className = 'group-count';
     count.textContent = g.entries.length ? g.entries.length + ' 条' : '空';
 
+    // 选中组：启用显示绿色「生效中」，停用显示灰色「已停用」
     var badge = document.createElement('span');
-    badge.className = 'group-badge';
-    badge.textContent = '生效中';
+    badge.className = 'group-badge' + (state.enabled ? '' : ' off');
+    badge.textContent = state.enabled ? '生效中' : '已停用';
 
     var del = document.createElement('button');
     del.className = 'group-del';
@@ -306,28 +339,22 @@ function renderGroupList() {
   });
 }
 
-// 切换到指定分组：先把当前 DOM 的编辑内容收回内存，选中即生效
+// 切换到指定分组：先把当前 DOM 的编辑内容收回内存；启用时选中即生效，停用时仅切换视图
 async function switchGroup(groupId) {
   syncActiveGroupFromDOM();
   state.activeGroupId = groupId;
   setStatus('', '');
-  renderGroupList();
   renderGroup();
-  await applyCurrentGroup();
+  if (state.enabled) {
+    await applyCurrentGroup();
+  } else {
+    await persistConfig();
+  }
 }
 
-// 渲染当前选中分组：空白分组只显示停用提示，普通分组显示名称、URL 和规则行
+// 渲染当前选中分组的名称、URL 和规则行
 function renderGroup() {
   renderGroupList();
-
-  if (state.activeGroupId === EMPTY_GROUP_ID) {
-    groupEditView.style.display = 'none';
-    emptyGroupView.style.display = 'block';
-    return;
-  }
-
-  emptyGroupView.style.display = 'none';
-  groupEditView.style.display = '';
 
   var group = getActiveGroup();
   state.activeGroupId = group.id;
@@ -413,15 +440,18 @@ function syncRowState(row) {
   }
 }
 
-// 新建分组：先保存当前分组的编辑内容，再创建并切换到空分组（选中即生效）
+// 新建分组：先保存当前分组的编辑内容，再创建并切换到空分组（启用时选中即生效）
 async function addGroup() {
   syncActiveGroupFromDOM();
   var group = createGroup('新分组 ' + (state.groups.length + 1), '', []);
   state.groups.push(group);
   state.activeGroupId = group.id;
-  renderGroupList();
   renderGroup();
-  await applyCurrentGroup();
+  if (state.enabled) {
+    await applyCurrentGroup();
+  } else {
+    await persistConfig();
+  }
   groupNameInput.focus();
   groupNameInput.select();
 }
@@ -451,20 +481,21 @@ function removeGroup(itemEl) {
   if (isActive) {
     var nextIndex = Math.min(index, state.groups.length - 1);
     state.activeGroupId = state.groups[nextIndex].id;
-    renderGroupList();
     renderGroup();
-    applyCurrentGroup();
+    if (state.enabled) {
+      applyCurrentGroup();
+    } else {
+      persistConfig();
+    }
   } else {
     renderGroupList();
     setStatus('', '');
+    persistConfig();
   }
 }
 
-// 把当前 DOM 中对分组名称、URL、规则的编辑收回内存（空白分组无可收内容）
+// 把当前 DOM 中对分组名称、URL、规则的编辑收回内存
 function syncActiveGroupFromDOM() {
-  if (state.activeGroupId === EMPTY_GROUP_ID) {
-    return;
-  }
   var group = getActiveGroup();
   if (!group) {
     return;
@@ -606,13 +637,17 @@ async function applyCurrentGroup() {
     return;
   }
 
+  if (state.enabled === false) {
+    setStatus('当前已停用：请先开启右上角总开关', '');
+    return;
+  }
+
   setStatus('应用中...', '');
 
-  // 将编辑内容收回内存（空白分组无操作）；普通分组同时校验规则行
+  // 将编辑内容收回内存，同时校验当前分组规则行
   syncActiveGroupFromDOM();
-  var isEmpty = state.activeGroupId === EMPTY_GROUP_ID;
-  var group = isEmpty ? null : getActiveGroup();
-  var validated = isEmpty ? { entries: [], hasError: false } : validateRows();
+  var group = getActiveGroup();
+  var validated = validateRows();
 
   try {
     // 清除本工具此前写入的全部动态规则：选中分组即为唯一生效来源
@@ -622,13 +657,8 @@ async function applyCurrentGroup() {
       .filter(function(id) { return id >= BASE_RULE_ID && id < BASE_RULE_ID + MAX_RULES; });
     await chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds: oldIds });
 
-    // 持久化全部分组配置及当前选中组（含空白分组标记）
+    // 持久化全部分组配置及当前选中组
     await persistConfig();
-
-    if (isEmpty) {
-      setStatus('已生效：空白分组，未修改任何 Header', 'success');
-      return;
-    }
 
     if (validated.hasError) {
       setStatus('分组「' + group.name + '」有无效规则，已清空 Header 修改，请修正标红项', 'error');
