@@ -571,6 +571,45 @@
       text-overflow: ellipsis;
       white-space: nowrap;
     }
+    /* 非生效分组右侧的规则条数；悬停时让位于删除按钮 */
+    .group-item .group-count {
+      flex: 0 0 auto;
+      font-size: 11px;
+      color: #a3a3a3;
+      font-weight: 400;
+    }
+    .group-item:hover .group-count {
+      display: none;
+    }
+    /* 当前生效分组的「生效中」徽标（绿点 + 文字，仅选中组显示） */
+    .group-item .group-badge {
+      display: none;
+      align-items: center;
+      gap: 4px;
+      flex: 0 0 auto;
+      font-size: 11px;
+      font-weight: 500;
+      color: rgba(250,250,250,0.85);
+      white-space: nowrap;
+    }
+    .group-item .group-badge::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #34a853;
+    }
+    .group-item.active .group-badge {
+      display: inline-flex;
+    }
+    /* 置顶的空白分组：虚线外观，与普通分组区分 */
+    .group-item.group-empty {
+      color: #737373;
+    }
+    .group-item.group-empty.active {
+      background: #0a0a0a;
+      color: #fafafa;
+    }
     /* 删除按钮：visibility 切换保持占位，避免出现/消失时挤压分组名 */
     .group-item .group-del {
       display: inline-flex;
@@ -734,6 +773,41 @@
     .rule-row.no-value .kv-sep,
     .rule-row.no-value .value-input {
       display: none;
+    }
+    /* 备注行：整行一个输入框，仅本地记录，不随请求发送 */
+    .rule-row .note-input {
+      flex: 1;
+      min-width: 0;
+    }
+    .rule-row .note-icon {
+      align-self: center;
+      color: #a3a3a3;
+      display: inline-flex;
+      flex: 0 0 auto;
+    }
+
+    /* 空白分组视图 */
+    .empty-group-view {
+      border: 1px dashed #d4d4d4;
+      border-radius: 18px;
+      padding: 30px 20px;
+      text-align: center;
+      color: #737373;
+      font-size: 12px;
+      line-height: 1.7;
+      background: #fafafa;
+    }
+    .empty-group-view .eg-icon {
+      color: #a3a3a3;
+      display: inline-flex;
+      justify-content: center;
+      margin-bottom: 8px;
+    }
+    .empty-group-view .eg-title {
+      color: #0a0a0a;
+      font-weight: 600;
+      font-size: 14px;
+      margin-bottom: 4px;
     }
     .rule-row .remove-btn {
       display: inline-flex;
@@ -983,25 +1057,34 @@
       </aside>
 
       <div class="sidebar-main">
-        <input id="groupName" class="group-input" placeholder="分组名称">
-        <input id="groupUrl" class="group-input" placeholder="本组 URL 过滤（选填），如 ||example.com">
-
-        <div class="field-hint">URL 留空对所有网站生效；点击左侧分组切换，选中即生效</div>
-
-        <div class="rule-list" id="ruleList"></div>
-
-        <div class="panel-actions">
-          <button class="action-btn secondary" id="addRule"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg> 添加一条</button>
-          <button class="action-btn secondary" id="importBtn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg> 导入</button>
-          <button class="action-btn primary" id="saveRules">应用当前分组</button>
+        <!-- 空白分组视图：选中后停用全部 Header 修改 -->
+        <div id="emptyGroupView" class="empty-group-view" style="display:none;">
+          <div class="eg-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/></svg></div>
+          <div class="eg-title">空白分组生效中</div>
+          <div>未启用任何 Header 修改，<br>所有请求保持浏览器原生行为。<br>点击左侧其他分组即可恢复对应规则。</div>
         </div>
 
-        <!-- 导入区：粘贴 JSON 或 Key-Value 文本，自动识别格式 -->
-        <div class="import-area" id="importArea" style="display:none;">
-          <textarea id="importText" class="import-textarea" placeholder="粘贴 JSON 或 Key-Value 文本，自动识别格式&#10;&#10;JSON：{&quot;X-Token&quot;: &quot;abc123&quot;}&#10;Key-Value：每行一条，支持 = 或 : 分隔&#10;X-Token = abc123&#10;User-Agent: MyBot"></textarea>
-          <div class="import-actions">
-            <button class="action-btn secondary" id="importCancel">取消</button>
-            <button class="action-btn primary" id="importConfirm">导入</button>
+        <div id="groupEditView">
+          <input id="groupName" class="group-input" placeholder="分组名称">
+          <input id="groupUrl" class="group-input" placeholder="本组 URL 过滤（选填），如 ||example.com">
+
+          <div class="field-hint">URL 留空对所有网站生效；点击左侧分组切换，选中即生效</div>
+
+          <div class="rule-list" id="ruleList"></div>
+
+          <div class="panel-actions">
+            <button class="action-btn secondary" id="addRule"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg> 添加一条</button>
+            <button class="action-btn secondary" id="importBtn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg> 导入</button>
+            <button class="action-btn primary" id="saveRules">应用当前分组</button>
+          </div>
+
+          <!-- 导入区：粘贴 JSON 或 Key-Value 文本，自动识别格式 -->
+          <div class="import-area" id="importArea" style="display:none;">
+            <textarea id="importText" class="import-textarea" placeholder="粘贴 JSON 或 Key-Value 文本，自动识别格式&#10;&#10;JSON：{&quot;X-Token&quot;: &quot;abc123&quot;}&#10;Key-Value：每行一条，支持 = 或 : 分隔&#10;X-Token = abc123&#10;User-Agent: MyBot"></textarea>
+            <div class="import-actions">
+              <button class="action-btn secondary" id="importCancel">取消</button>
+              <button class="action-btn primary" id="importConfirm">导入</button>
+            </div>
           </div>
         </div>
 

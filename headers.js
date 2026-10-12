@@ -4,6 +4,7 @@
 var STORAGE_KEY = 'headerRules';
 var BASE_RULE_ID = 10000; // 本工具动态规则 ID 起始段
 var MAX_RULES = 5000;    // 受 DNR 动态规则上限保护
+var EMPTY_GROUP_ID = '__empty__'; // 内置空白分组：选中即停用全部 Header 修改
 
 // 覆盖全部资源类型，保证页面、子框架、XHR/fetch、静态资源等都命中
 var RESOURCE_TYPES = [
@@ -34,12 +35,15 @@ var VALID_URL_FILTER = /^[\x21-\x7e]*$/;
 
 // 细描边线性图标（Lucide 风格）
 var ICON_TRASH = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>';
+var ICON_NOTE = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8Z"/><path d="M15 3v4a2 2 0 0 0 2 2h4"/><path d="M8 13h8"/><path d="M8 17h5"/></svg>';
 var ICON_X = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>';
 
 var toolList = document.getElementById('toolList');
 var resultDiv = document.getElementById('result');
 var headerPanel = document.getElementById('headerPanel');
 var groupListEl = document.getElementById('groupList');
+var emptyGroupView = document.getElementById('emptyGroupView');
+var groupEditView = document.getElementById('groupEditView');
 var groupNameInput = document.getElementById('groupName');
 var groupUrlInput = document.getElementById('groupUrl');
 var ruleList = document.getElementById('ruleList');
@@ -86,8 +90,11 @@ groupListEl.addEventListener('click', function(e) {
   switchGroup(item.dataset.groupId);
 });
 
-// 编辑分组名称时同步更新侧边栏当前项文案
+// 编辑分组名称时同步更新侧边栏当前项文案（空白分组无名称输入框）
 groupNameInput.addEventListener('input', function() {
+  if (state.activeGroupId === EMPTY_GROUP_ID) {
+    return;
+  }
   var label = groupListEl.querySelector('.group-item.active .group-label');
   if (label) {
     label.textContent = groupNameInput.value.trim() || '未命名分组';
@@ -187,7 +194,8 @@ async function loadConfig() {
   }
 
   var activeGroupId = config.activeGroupId;
-  if (!groups.some(function(g) { return g.id === activeGroupId; })) {
+  if (activeGroupId !== EMPTY_GROUP_ID &&
+      !groups.some(function(g) { return g.id === activeGroupId; })) {
     activeGroupId = groups[0].id;
   }
 
@@ -228,13 +236,44 @@ function migrateV1(old) {
 }
 
 function getActiveGroup() {
+  if (state.activeGroupId === EMPTY_GROUP_ID) {
+    return null;
+  }
   var group = state.groups.find(function(g) { return g.id === state.activeGroupId; });
   return group || state.groups[0];
 }
 
-// 渲染侧边栏分组列表
+// 持久化全部分组配置及当前选中（activeGroupId 可能是内置空白分组）
+function persistConfig() {
+  return chrome.storage.local.set({
+    headerRules: {
+      activeGroupId: state.activeGroupId,
+      groups: state.groups.map(function(g) {
+        return { id: g.id, name: g.name, urlFilter: g.urlFilter, entries: g.entries };
+      })
+    }
+  });
+}
+
+// 渲染侧边栏分组列表：置顶内置空白分组，其后为用户分组
 function renderGroupList() {
   groupListEl.innerHTML = '';
+
+  var emptyItem = document.createElement('div');
+  emptyItem.className = 'group-item group-empty' +
+    (state.activeGroupId === EMPTY_GROUP_ID ? ' active' : '');
+  emptyItem.dataset.groupId = EMPTY_GROUP_ID;
+  emptyItem.title = '空白分组：不修改任何 Header';
+  var emptyLabel = document.createElement('span');
+  emptyLabel.className = 'group-label';
+  emptyLabel.textContent = '空白（不修改）';
+  var emptyBadge = document.createElement('span');
+  emptyBadge.className = 'group-badge';
+  emptyBadge.textContent = '生效中';
+  emptyItem.appendChild(emptyLabel);
+  emptyItem.appendChild(emptyBadge);
+  groupListEl.appendChild(emptyItem);
+
   state.groups.forEach(function(g) {
     var item = document.createElement('div');
     item.className = 'group-item' + (g.id === state.activeGroupId ? ' active' : '');
@@ -245,12 +284,23 @@ function renderGroupList() {
     label.className = 'group-label';
     label.textContent = g.name || '未命名分组';
 
+    // 非生效组显示规则条数；生效组显示「生效中」徽标
+    var count = document.createElement('span');
+    count.className = 'group-count';
+    count.textContent = g.entries.length ? g.entries.length + ' 条' : '空';
+
+    var badge = document.createElement('span');
+    badge.className = 'group-badge';
+    badge.textContent = '生效中';
+
     var del = document.createElement('button');
     del.className = 'group-del';
     del.title = '删除此分组';
     del.innerHTML = ICON_X;
 
     item.appendChild(label);
+    item.appendChild(count);
+    item.appendChild(badge);
     item.appendChild(del);
     groupListEl.appendChild(item);
   });
@@ -266,11 +316,21 @@ async function switchGroup(groupId) {
   await applyCurrentGroup();
 }
 
-// 渲染当前选中分组的名称、URL 和规则行
+// 渲染当前选中分组：空白分组只显示停用提示，普通分组显示名称、URL 和规则行
 function renderGroup() {
+  renderGroupList();
+
+  if (state.activeGroupId === EMPTY_GROUP_ID) {
+    groupEditView.style.display = 'none';
+    emptyGroupView.style.display = 'block';
+    return;
+  }
+
+  emptyGroupView.style.display = 'none';
+  groupEditView.style.display = '';
+
   var group = getActiveGroup();
   state.activeGroupId = group.id;
-  renderGroupList();
   groupNameInput.value = group.name;
   groupUrlInput.value = group.urlFilter;
 
@@ -311,12 +371,17 @@ function addRow(entry) {
       '<span class="kv-sep">=</span>' +
       '<input class="value-input" placeholder="Value">' +
     '</div>' +
+    '<div class="row-line">' +
+      '<span class="note-icon">' + ICON_NOTE + '</span>' +
+      '<input class="note-input" placeholder="备注（选填，仅本地记录，不会发送）">' +
+    '</div>' +
     '<div class="row-error"></div>';
 
   row.querySelector('.direction-select').value = direction;
   row.querySelector('.operation-select').value = operation;
   row.querySelector('.name-input').value = entry.name || '';
   row.querySelector('.value-input').value = entry.value || '';
+  row.querySelector('.note-input').value = entry.note || '';
 
   syncRowState(row);
   ruleList.appendChild(row);
@@ -395,8 +460,11 @@ function removeGroup(itemEl) {
   }
 }
 
-// 把当前 DOM 中对分组名称、URL、规则的编辑收回内存
+// 把当前 DOM 中对分组名称、URL、规则的编辑收回内存（空白分组无可收内容）
 function syncActiveGroupFromDOM() {
+  if (state.activeGroupId === EMPTY_GROUP_ID) {
+    return;
+  }
   var group = getActiveGroup();
   if (!group) {
     return;
@@ -412,7 +480,8 @@ function readRow(row) {
     direction: row.querySelector('.direction-select').value,
     operation: operation,
     name: row.querySelector('.name-input').value.trim(),
-    value: operation === 'remove' ? '' : row.querySelector('.value-input').value
+    value: operation === 'remove' ? '' : row.querySelector('.value-input').value,
+    note: row.querySelector('.note-input').value.trim()
   };
 }
 
@@ -428,7 +497,8 @@ function collectRawEntries() {
       direction: entry.direction,
       operation: entry.operation,
       name: entry.name,
-      value: entry.value
+      value: entry.value,
+      note: entry.note
     });
   });
   return entries;
@@ -538,10 +608,11 @@ async function applyCurrentGroup() {
 
   setStatus('应用中...', '');
 
-  // 将编辑内容收回内存，同时校验当前分组规则行
+  // 将编辑内容收回内存（空白分组无操作）；普通分组同时校验规则行
   syncActiveGroupFromDOM();
-  var group = getActiveGroup();
-  var validated = validateRows();
+  var isEmpty = state.activeGroupId === EMPTY_GROUP_ID;
+  var group = isEmpty ? null : getActiveGroup();
+  var validated = isEmpty ? { entries: [], hasError: false } : validateRows();
 
   try {
     // 清除本工具此前写入的全部动态规则：选中分组即为唯一生效来源
@@ -551,6 +622,14 @@ async function applyCurrentGroup() {
       .filter(function(id) { return id >= BASE_RULE_ID && id < BASE_RULE_ID + MAX_RULES; });
     await chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds: oldIds });
 
+    // 持久化全部分组配置及当前选中组（含空白分组标记）
+    await persistConfig();
+
+    if (isEmpty) {
+      setStatus('已生效：空白分组，未修改任何 Header', 'success');
+      return;
+    }
+
     if (validated.hasError) {
       setStatus('分组「' + group.name + '」有无效规则，已清空 Header 修改，请修正标红项', 'error');
       return;
@@ -559,16 +638,6 @@ async function applyCurrentGroup() {
       setStatus('当前分组的 URL 过滤含有非法字符，已清空 Header 修改', 'error');
       return;
     }
-
-    // 持久化全部分组配置及当前选中组
-    await chrome.storage.local.set({
-      headerRules: {
-        activeGroupId: state.activeGroupId,
-        groups: state.groups.map(function(g) {
-          return { id: g.id, name: g.name, urlFilter: g.urlFilter, entries: g.entries };
-        })
-      }
-    });
 
     if (validated.entries.length === 0) {
       setStatus('已生效：分组「' + group.name + '」暂无规则', 'success');
@@ -604,13 +673,14 @@ async function applyCurrentGroup() {
 
 // ===== 导入：自动识别 JSON 与 Key-Value 两种格式 =====
 
-// 归一化一条导入条目：operation/direction 缺省用默认值，value 转字符串
+// 归一化一条导入条目：operation/direction 缺省用默认值，value 转字符串，note 为本地备注
 function normalizeImportedEntry(e) {
   return {
     direction: e.direction === 'responseHeaders' ? 'responseHeaders' : 'requestHeaders',
     operation: ['set', 'append', 'remove'].indexOf(e.operation) >= 0 ? e.operation : 'set',
     name: String(e.name || '').trim(),
-    value: e.value === undefined || e.value === null ? '' : String(e.value)
+    value: e.value === undefined || e.value === null ? '' : String(e.value),
+    note: e.note === undefined || e.note === null ? '' : String(e.note).trim()
   };
 }
 
@@ -625,7 +695,8 @@ function parseJsonImport(text) {
           name: item.name || item.header,
           value: item.value,
           operation: item.operation,
-          direction: item.direction
+          direction: item.direction,
+          note: item.note || item.remark || item.comment
         }));
       }
     });
