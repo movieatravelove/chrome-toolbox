@@ -886,13 +886,12 @@
       display: block;
     }
 
-    /* 底部操作：黑底主按钮 + 灰底次按钮，同形药丸 */
+    /* 底部操作：添加规则占满剩余宽度（虚线边框），导入为紧凑次按钮 */
     .panel-actions {
       display: flex;
       gap: 8px;
     }
     .action-btn {
-      flex: 1;
       display: inline-flex;
       align-items: center;
       justify-content: center;
@@ -904,10 +903,28 @@
       font-family: inherit;
       font-size: 13px;
       font-weight: 500;
-      transition: background 0.15s, transform 0.1s;
+      transition: background 0.15s, border-color 0.15s, transform 0.1s;
     }
     .action-btn:active {
       transform: scale(0.985);
+    }
+    /* 添加一条：占满剩余宽度的虚线按钮 */
+    .action-btn.dashed {
+      flex: 1;
+      min-width: 0;
+      border: 1px dashed #c9c9c9;
+      background: transparent;
+      color: #737373;
+    }
+    .action-btn.dashed:hover {
+      color: #0a0a0a;
+      border-color: #0a0a0a;
+      background: #f5f5f5;
+    }
+    /* 导入：紧凑占位 */
+    .action-btn.compact {
+      flex: 0 0 auto;
+      padding: 10px 16px;
     }
     .action-btn.secondary {
       background: #f5f5f5;
@@ -1131,8 +1148,8 @@
           <div class="rule-list" id="ruleList"></div>
 
           <div class="panel-actions">
-            <button class="action-btn secondary" id="addRule"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg> 添加一条</button>
-            <button class="action-btn secondary" id="importBtn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg> 导入</button>
+            <button class="action-btn dashed" id="addRule"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg> 添加一条</button>
+            <button class="action-btn secondary compact" id="importBtn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg> 导入</button>
           </div>
 
           <!-- 导入区：粘贴 JSON 或 Key-Value 文本，自动识别格式 -->
