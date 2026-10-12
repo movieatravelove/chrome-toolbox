@@ -921,10 +921,17 @@
       border-color: #0a0a0a;
       background: #f5f5f5;
     }
-    /* 导入：紧凑占位 */
+    /* 导入：紧凑占位，实线边框与虚线的「添加一条」配对 */
     .action-btn.compact {
       flex: 0 0 auto;
       padding: 10px 16px;
+      border: 1px solid #d4d4d4;
+      background: #ffffff;
+      color: #0a0a0a;
+    }
+    .action-btn.compact:hover {
+      border-color: #0a0a0a;
+      background: #ffffff;
     }
     .action-btn.secondary {
       background: #f5f5f5;
@@ -1149,7 +1156,7 @@
 
           <div class="panel-actions">
             <button class="action-btn dashed" id="addRule"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg> 添加一条</button>
-            <button class="action-btn secondary compact" id="importBtn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg> 导入</button>
+            <button class="action-btn compact" id="importBtn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg> 导入</button>
           </div>
 
           <!-- 导入区：粘贴 JSON 或 Key-Value 文本，自动识别格式 -->
