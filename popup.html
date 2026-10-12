@@ -715,14 +715,23 @@
       border-color: #0a0a0a;
       background: #ffffff;
     }
-    /* 分组名称 + 单字简称同一行 */
-    .group-input-row {
+    /* 分组字段行：左侧固定标签，右侧输入框自适应 */
+    .group-field {
       display: flex;
+      align-items: center;
       gap: 8px;
+      margin-bottom: 8px;
     }
-    .group-input-row .group-input {
+    .field-label {
+      flex: 0 0 38px;
+      font-size: 12px;
+      color: #737373;
+      line-height: 1.2;
+    }
+    .group-field .group-input {
       flex: 1;
       min-width: 0;
+      margin-bottom: 0;
     }
     .group-input.group-short {
       flex: 0 0 56px;
@@ -1107,11 +1116,15 @@
 
       <div class="sidebar-main">
         <div id="groupEditView">
-          <div class="group-input-row">
+          <div class="group-field">
+            <label class="field-label" for="groupName">名称</label>
             <input id="groupName" class="group-input" placeholder="分组名称">
             <input id="groupShort" class="group-input group-short" maxlength="1" placeholder="简称" title="分组简称（一个字），留空则取名称首字">
           </div>
-          <input id="groupUrl" class="group-input" placeholder="本组 URL 过滤（选填），如 ||example.com">
+          <div class="group-field">
+            <label class="field-label" for="groupUrl">URL</label>
+            <input id="groupUrl" class="group-input" placeholder="选填，如 ||example.com">
+          </div>
 
           <div class="field-hint">简称取一个字作为头像，留空自动取名称首字；输入自动保存并立即生效，URL 留空对所有网站生效</div>
 
