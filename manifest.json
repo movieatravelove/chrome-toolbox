@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "ChromeToolbox",
-  "version": "1.8.0",
+  "version": "1.9.4",
   "description": "实用的网页工具集合",
   "permissions": ["activeTab", "scripting", "declarativeNetRequest", "storage", "contextMenus", "downloads"],
   "host_permissions": ["<all_urls>"],
@@ -12,6 +12,11 @@
     {
       "matches": ["http://*/*", "https://*/*"],
       "js": ["image-preview.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["marked.min.js", "purify.min.js", "resource-preview.js"],
       "run_at": "document_idle"
     }
   ],

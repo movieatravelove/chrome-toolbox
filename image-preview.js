@@ -3,47 +3,69 @@
  * 在任意网页点击图片时弹出浮层就地查看：左右切换、滚轮/按钮缩放（鼠标点移至中心）、
  * 拖动平移、跳转到仓库目录（代码平台）、新标签页打开。ESC 关闭。
  * 事件委托绑在 document 上，兼容各站点的无跳转局部导航。
- * 可在扩展 popup 中通过开关停用，设置持久保存在 chrome.storage.local。
+ * 与链接资源预览共用 popup「资源预览」总开关（previewEnabled）、网站名单与 previewTypes 类型开关，
+ * 设置持久保存在 chrome.storage.local。
  */
 (function() {
   var OVERLAY_ID = 'img-preview-overlay';
-  var STORE_KEY = 'imagePreviewEnabled';
+  var MASTER_KEY = 'previewEnabled';      // 统一的资源预览总开关（图片/Markdown 等共用）
+  var STORE_KEY = 'imagePreviewEnabled';  // 旧版独立开关，仅做迁移回退
   var LEGACY_KEY = 'ghImagePreviewEnabled'; // 旧版仅 GitHub 时的设置键，做一次迁移
   var Z = 2147483646;
 
   // ===== 设置状态 =====
   var enabled = true;
-  var triggerMode = 'click';   // click | contextMenu | modifier | hover
+  // 打开方式（与链接资源预览共用同一设置）：
+  // click 直接打开 | modifier Alt+点击 | contextMenu 右键菜单 | drag 拖动 | longpress 长按 | hover 悬停
+  var linkTriggerMode = 'click';
+  var hoverMs = 600;       // 悬停打开延时
+  var longPressMs = 500;   // 长按打开时长
   var filterMode = 'blacklist'; // blacklist | whitelist
   var blockedSites = [];
   var allowedSites = [];
+  // 各格式独立启停（与 resource-preview.js 共用 previewTypes）：缺键视为开启
+  var typePrefs = {};
 
-  // 当前站点功能是否可用：总开关 + 名单判定
+  // 总开关状态：统一键为准；尚未迁移（popup 未打开过）时回退到旧版图片开关
+  function masterOn(res) {
+    if (res[MASTER_KEY] !== undefined) return res[MASTER_KEY] !== false;
+    var legacy = res[STORE_KEY] !== undefined ? res[STORE_KEY] : res[LEGACY_KEY];
+    return legacy !== false;
+  }
+
+  // 当前站点图片预览是否可用：总开关 + 图片类型开关 + 名单判定
   function siteActive() {
     if (!enabled) return false;
+    if (typePrefs.image === false) return false;
     if (filterMode === 'whitelist') return allowedSites.indexOf(location.hostname) !== -1;
     return blockedSites.indexOf(location.hostname) === -1;
   }
 
   chrome.storage.local.get(
-    [STORE_KEY, LEGACY_KEY, 'blockedSites', 'allowedSites', 'previewTriggerMode', 'siteFilterMode'],
+    [MASTER_KEY, STORE_KEY, LEGACY_KEY, 'blockedSites', 'allowedSites',
+     'linkTriggerMode', 'linkHoverMs', 'linkLongPressMs', 'siteFilterMode', 'previewTypes'],
     function(res) {
-      enabled = res[STORE_KEY] !== undefined
-        ? res[STORE_KEY]
-        : res[LEGACY_KEY] !== false;
+      enabled = masterOn(res);
       blockedSites = res.blockedSites || [];
       allowedSites = res.allowedSites || [];
-      if (res.previewTriggerMode) triggerMode = res.previewTriggerMode;
+      typePrefs = res.previewTypes || {};
+      if (res.linkTriggerMode) linkTriggerMode = res.linkTriggerMode;
+      if (res.linkHoverMs) hoverMs = res.linkHoverMs;
+      if (res.linkLongPressMs) longPressMs = res.linkLongPressMs;
       if (res.siteFilterMode) filterMode = res.siteFilterMode;
     }
   );
   chrome.storage.onChanged.addListener(function(changes, area) {
     if (area !== 'local') return;
-    if (changes[STORE_KEY]) enabled = changes[STORE_KEY].newValue !== false;
-    if (changes.previewTriggerMode) triggerMode = changes.previewTriggerMode.newValue || 'click';
+    if (changes[MASTER_KEY]) enabled = changes[MASTER_KEY].newValue !== false;
+    if (changes.linkTriggerMode) linkTriggerMode = changes.linkTriggerMode.newValue || 'click';
+    if (changes.linkHoverMs) hoverMs = changes.linkHoverMs.newValue || 600;
+    if (changes.linkLongPressMs) longPressMs = changes.linkLongPressMs.newValue || 500;
     if (changes.siteFilterMode) filterMode = changes.siteFilterMode.newValue || 'blacklist';
     if (changes.blockedSites) blockedSites = changes.blockedSites.newValue || [];
     if (changes.allowedSites) allowedSites = changes.allowedSites.newValue || [];
+    // 图片类型被停用也会令 siteActive() 为假，下面统一关闭浮层与待发手势
+    if (changes.previewTypes) typePrefs = changes.previewTypes.newValue || {};
 
     if (!siteActive()) {
       var ov = document.getElementById(OVERLAY_ID);
@@ -51,6 +73,8 @@
         ov.remove();
         document.documentElement.style.overflow = ''; // 绕过 close()，手动恢复滚动
       }
+      cancelHold(); // 停掉待发的长按/拖动手势与进度环
+      clearHover();
     }
   });
 
@@ -439,7 +463,7 @@
     dlPanel.appendChild(dlAllBtn);
 
     overlay.appendChild(viewport);
-    overlay.appendChild(rail);
+    if (rail) overlay.appendChild(rail); // 仅 1 张图片时无缩略图栏
     overlay.appendChild(toolbar);
     overlay.appendChild(urlBar);
     overlay.appendChild(dlPanel);
@@ -903,20 +927,16 @@
       overlay.remove();
       document.documentElement.style.overflow = prevOverflow;
       document.removeEventListener('keydown', onKeydown, true);
-      // hover 模式：关闭后短暂抑制，鼠标还停在原图上时不会立刻重弹
-      clearTimeout(hoverTimer);
+      // 悬停/长按：清掉待发手势，关闭后短暂抑制，鼠标还停在原图上时不会立刻重弹
+      clearHover();
+      cancelHold();
       hoverSuppressUntil = Date.now() + 1500;
     }
 
     showAt(index);
   }
 
-  // ===== hover 模式：悬停延时自动打开 =====
-  var HOVER_DELAY = 600;
-  var hoverTimer = 0;
-  var hoverEl = null;
-  var hoverSuppressUntil = 0; // 关闭浮层后的短暂抑制期，防止立刻重弹
-
+  // 可拦截的图片：非表情/功能小图；外层若是链接，必须指向图片本身
   function hoverable(t) {
     if (!t || t.tagName !== 'IMG') return false;
     if (isEmoji(t) || isInteractive(t)) return false;
@@ -925,56 +945,192 @@
     return !a || isImageLink(a);
   }
 
-  document.addEventListener('mouseover', function(e) {
-    if (triggerMode !== 'hover' || !siteActive()) return;
-    if (document.getElementById(OVERLAY_ID)) return; // 浮层已打开，不再触发
+  // 在当前页图片集合中定位目标并打开（不在集合内则单张预览）
+  function openForImg(target) {
+    var images = collectImages();
+    var idx = images.indexOf(target);
+    if (idx === -1) { images = [target]; idx = 0; }
+    openViewer(images, idx);
+  }
+
+  // ===== 长按 / 拖动：在图片上按下鼠标后跟踪 =====
+  var DRAG_PX = 12;        // 拖动模式的触发距离
+  var MOVE_TOLERANCE = 10; // 长按模式允许的轻微抖动
+  var hold = null;         // { el, x, y, mode, timer, ring, fired }
+
+  // 长按/悬停时跟随光标的进度环；animate=false 时为静态圆环（拖动模式）
+  function startHoldRing(x, y, ms, animate) {
+    var ring = document.createElement('div');
+    ring.style.cssText =
+      'position:fixed;z-index:' + (Z + 3) + ';width:34px;height:34px;border-radius:50%;' +
+      'pointer-events:none;display:flex;align-items:center;justify-content:center;' +
+      'left:' + (x + 14) + 'px;top:' + (y - 40) + 'px;';
+    var fill = document.createElement('div');
+    fill.style.cssText =
+      'width:34px;height:34px;border-radius:50%;' +
+      'background:conic-gradient(rgba(10,10,10,0.25) 360deg);';
+    var dot = document.createElement('div');
+    dot.style.cssText =
+      'position:absolute;width:24px;height:24px;border-radius:50%;background:#fff;' +
+      'box-shadow:0 1px 6px rgba(0,0,0,0.25);display:flex;align-items:center;justify-content:center;';
+    dot.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0a0a0a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>';
+    ring.appendChild(fill);
+    ring.appendChild(dot);
+    document.body.appendChild(ring);
+
+    var t0 = Date.now(), raf = 0;
+    if (animate !== false) {
+      (function tick() {
+        var pct = Math.min(1, (Date.now() - t0) / ms);
+        fill.style.background =
+          'conic-gradient(rgba(10,10,10,0.9) ' + (pct * 360) + 'deg, rgba(10,10,10,0.25) 0deg)';
+        if (pct < 1 && ring.parentNode) raf = requestAnimationFrame(tick);
+      })();
+    }
+    return {
+      move: function(x2, y2) { ring.style.left = (x2 + 14) + 'px'; ring.style.top = (y2 - 40) + 'px'; },
+      // 拖动模式：越过阈值后圆环填实，提示「松手即打开」
+      setArmed: function(on) {
+        fill.style.background = on
+          ? 'conic-gradient(rgba(10,10,10,0.9) 360deg, rgba(10,10,10,0.25) 0deg)'
+          : 'conic-gradient(rgba(10,10,10,0.25) 360deg)';
+      },
+      remove: function() { cancelAnimationFrame(raf); if (ring.parentNode) ring.remove(); }
+    };
+  }
+
+  function cancelHold() {
+    if (!hold) return;
+    clearTimeout(hold.timer);
+    hold.ring.remove();
+    hold = null;
+  }
+
+  function finishHold() {
+    if (!hold) return;
+    hold.fired = true;
+    suppressClick = true; // 松开后浏览器还会补发 click，吞掉它，否则会立刻关掉刚打开的浮层
+    var ring = hold.ring, timer = hold.timer;
+    hold = null;
+    clearTimeout(timer);
+    ring.remove();
+  }
+
+  document.addEventListener('mousedown', function(e) {
+    if (!siteActive()) return;
+    if (linkTriggerMode !== 'longpress' && linkTriggerMode !== 'drag') return;
+    if (document.getElementById(OVERLAY_ID)) return; // 浮层内的按下不处理
+    if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
     if (!hoverable(e.target)) return;
+
+    e.preventDefault(); // 阻止浏览器原生拖图（click 仍会触发）
+    var target = e.target;
+    var ring = startHoldRing(
+      e.clientX, e.clientY, longPressMs,
+      linkTriggerMode === 'longpress' // 拖动模式显示静态圆环，不表达时间
+    );
+    hold = {
+      el: target, x: e.clientX, y: e.clientY,
+      mode: linkTriggerMode, ring: ring, fired: false, armed: false, timer: 0
+    };
+    if (hold.mode === 'longpress') {
+      hold.timer = setTimeout(function() {
+        if (!hold || hold.fired) return;
+        var t = hold.el; // finishHold 会把 hold 置空，先取目标
+        finishHold();
+        openForImg(t);
+      }, longPressMs);
+    }
+  }, true);
+
+  document.addEventListener('mousemove', function(e) {
+    if (hoverRing) hoverRing.move(e.clientX, e.clientY);
+    if (!hold) return;
+    var dx = e.clientX - hold.x, dy = e.clientY - hold.y;
+    hold.ring.move(e.clientX, e.clientY);
+    if (hold.mode === 'longpress') {
+      // 长按：移动超过容差视为取消（变成普通拖拽意图）
+      if (dx * dx + dy * dy > MOVE_TOLERANCE * MOVE_TOLERANCE) cancelHold();
+    } else {
+      // 拖动：越过阈值进入「松手即打开」就绪态，但不立即打开
+      var armed = dx * dx + dy * dy >= DRAG_PX * DRAG_PX;
+      if (armed !== hold.armed) { hold.armed = armed; hold.ring.setArmed(armed); }
+    }
+  }, true);
+
+  // 松手时判定：拖动就绪 → 打开；未拖够距离松手 → 取消，随后的 click 按普通点击放行。失焦一律取消
+  window.addEventListener('mouseup', function() {
+    if (!hold || hold.fired) return;
+    if (hold.mode === 'drag' && hold.armed) {
+      var t = hold.el; // finishHold 会把 hold 置空，先取目标
+      finishHold();
+      openForImg(t);
+      // 手势补发的 click 紧随其后被吞掉；若 click 未出现，400ms 后兜底复位
+      setTimeout(function() { suppressClick = false; }, 400);
+      return;
+    }
+    cancelHold();
+  });
+  window.addEventListener('blur', function() { if (hold && !hold.fired) cancelHold(); });
+
+  // ===== hover 模式：悬停达到延时自动打开，期间在光标处显示进度环 =====
+  var hoverTimer = 0;
+  var hoverRing = null;
+  var hoverEl = null;
+  var hoverSuppressUntil = 0; // 关闭浮层后的短暂抑制期，防止立刻重弹
+
+  function clearHover() {
     clearTimeout(hoverTimer);
+    if (hoverRing) { hoverRing.remove(); hoverRing = null; }
+    hoverEl = null;
+  }
+
+  document.addEventListener('mouseover', function(e) {
+    if (linkTriggerMode !== 'hover' || !siteActive()) return;
+    if (Date.now() < hoverSuppressUntil) return; // 刚关闭浮层，不再立刻重弹
+    if (document.getElementById(OVERLAY_ID)) return; // 浮层已打开，不再触发
+    if (!hoverable(e.target) || e.target === hoverEl) return;
+
+    clearHover();
     hoverEl = e.target;
+    var target = e.target;
     hoverTimer = setTimeout(function() {
-      if (triggerMode !== 'hover' || !siteActive() || Date.now() < hoverSuppressUntil) return;
+      if (linkTriggerMode !== 'hover' || !siteActive() || Date.now() < hoverSuppressUntil) return;
       if (document.getElementById(OVERLAY_ID)) return;
-      var images = collectImages();
-      var idx = images.indexOf(hoverEl);
-      if (idx === -1) { images = [hoverEl]; idx = 0; }
-      hoverSuppressUntil = Date.now() + 2000; // 关闭后 2 秒内重入不弹
-      openViewer(images, idx);
-    }, HOVER_DELAY);
+      clearHover();
+      openForImg(target);
+    }, hoverMs);
+    hoverRing = startHoldRing(e.clientX, e.clientY, hoverMs, true);
   }, true);
 
   document.addEventListener('mouseout', function(e) {
-    if (e.target === hoverEl) {
-      clearTimeout(hoverTimer);
-      hoverEl = null;
-    }
+    if (e.target === hoverEl) clearHover();
   }, true);
+
+  // 手势触发（长按/拖动）后吞掉随之而来的 click，避免立刻关掉刚打开的浮层
+  var suppressClick = false;
 
   // 事件委托：捕获阶段拦截，兼容各站点的局部导航动态内容
   document.addEventListener('click', function(e) {
+    if (suppressClick) {
+      suppressClick = false;
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
     if (!siteActive()) return;
+    if (document.getElementById(OVERLAY_ID)) return; // 浮层内点击交给浮层自己处理
     // click 模式：普通左键单击即预览；modifier 模式：需按住 Alt
-    if (triggerMode !== 'click' && triggerMode !== 'modifier') return;
+    if (linkTriggerMode !== 'click' && linkTriggerMode !== 'modifier') return;
     if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey) return;
-    if (triggerMode === 'modifier' && !e.altKey) return;
-    if (triggerMode === 'click' && e.altKey) return; // click 模式 Alt+点击保持原生
+    if (linkTriggerMode === 'modifier' && !e.altKey) return;
+    if (linkTriggerMode === 'click' && e.altKey) return; // click 模式 Alt+点击保持原生
 
     var target = e.target;
-    if (!target || target.tagName !== 'IMG') return;
-    if (isEmoji(target) || isInteractive(target)) return;
-    if (Math.max(target.offsetWidth, target.offsetHeight) < 24) return;
-
-    var anchor = target.closest('a');
-    if (anchor && !isImageLink(anchor)) return;
+    if (!hoverable(target)) return;
 
     e.preventDefault();
     e.stopPropagation();
-
-    var images = collectImages();
-    var idx = images.indexOf(target);
-    if (idx === -1) {
-      images = [target];
-      idx = 0;
-    }
-    openViewer(images, idx);
+    openForImg(target);
   }, true);
 })();

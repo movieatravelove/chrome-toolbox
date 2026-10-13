@@ -191,25 +191,41 @@
       margin-bottom: 3px;
     }
 
-    /* 齿轮设置入口：无边框图标按钮 */
-    .icon-btn {
-      flex: 0 0 auto;
-      width: 32px;
-      height: 32px;
-      padding: 0;
-      border: none;
-      border-radius: 50%;
-      background: transparent;
-      color: #737373;
-      cursor: pointer;
+    /* 资源预览类型行：类型名 + 一行说明，非交互 */
+    .type-row {
       display: flex;
       align-items: center;
-      justify-content: center;
-      transition: background 0.12s, color 0.12s;
+      gap: 10px;
+      padding: 9px 2px 0;
+      cursor: pointer;
     }
-    .icon-btn:hover {
-      background: #f0f0f0;
+    .type-row .type-name {
+      flex: 0 0 64px;
+      font-size: 13px;
+      font-weight: 500;
       color: #0a0a0a;
+    }
+    .type-row .type-desc {
+      flex: 1;
+      min-width: 0;
+      font-size: 11px;
+      color: #737373;
+      line-height: 1.4;
+    }
+    .type-row .switch {
+      flex: 0 0 auto;
+    }
+
+    /* 首页资源预览卡：整卡即设置入口（右侧开关单独 stopPropagation，不进面板） */
+    .setting-entry {
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+    }
+    .setting-entry:hover {
+      background: #fafafa;
+    }
+    .setting-entry:active {
+      transform: scale(0.99);
     }
 
     /* ===== 单选行组（触发方式）===== */
@@ -276,6 +292,47 @@
       font-size: 11px;
       color: #737373;
       margin-top: 2px;
+      line-height: 1.4;
+    }
+
+    /* 触发延时设置行（长按 / 悬停） */
+    .delay-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 10px;
+      padding: 9px 12px;
+      background: #fafafa;
+      border: 1px solid #e5e5e5;
+      border-radius: 12px;
+      font-size: 12px;
+      color: #737373;
+    }
+    .delay-input {
+      width: 78px;
+      padding: 6px 8px;
+      border: 1px solid #e5e5e5;
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 12px;
+      background: #ffffff;
+      color: #0a0a0a;
+      text-align: center;
+      transition: border-color 0.12s;
+    }
+    .delay-input:focus {
+      outline: none;
+      border-color: #0a0a0a;
+    }
+    .delay-row .delay-unit {
+      font-size: 11px;
+      color: #a3a3a3;
+    }
+    .delay-hint {
+      flex: 1;
+      min-width: 0;
+      font-size: 11px;
+      color: #a3a3a3;
       line-height: 1.4;
     }
 
@@ -352,9 +409,9 @@
 
     /* 二级页打开时隐藏首页内容（仅 body 直接子元素，
        不能连带隐藏面板内部的 .setting-card） */
-    body.img-settings-open > #toolList,
-    body.img-settings-open > .setting-card,
-    body.img-settings-open > .result {
+    body.preview-settings-open > #toolList,
+    body.preview-settings-open > .setting-card,
+    body.preview-settings-open > .result {
       display: none;
     }
     /* 修改 Header 面板打开时也隐藏图片预览卡片（headerPanel 内无 setting-card） */
@@ -694,6 +751,82 @@
       min-width: 0;
     }
 
+    /* ===== 资源预览设置：左导航 + 右内容（同 Header 面板的左右结构）===== */
+    body.preview-settings-open {
+      width: 560px;
+    }
+    .ps-layout {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+    }
+    .ps-nav {
+      flex: 0 0 108px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      background: #fafafa;
+      border-radius: 18px;
+      padding: 8px;
+      position: relative;
+    }
+    /* 导航与主区之间的分割线（位于 gap 正中） */
+    .ps-nav::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      right: -6.5px;
+      width: 1px;
+      background: #e5e5e5;
+    }
+    .ps-nav-item {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      width: 100%;
+      padding: 9px 10px;
+      border: none;
+      border-radius: 12px;
+      background: transparent;
+      font-family: inherit;
+      font-size: 12.5px;
+      font-weight: 500;
+      color: #737373;
+      text-align: left;
+      white-space: nowrap;
+      cursor: pointer;
+      transition: background 0.12s, color 0.12s;
+    }
+    .ps-nav-item svg {
+      flex: none;
+    }
+    .ps-nav-item:hover {
+      background: #f0f0f0;
+      color: #0a0a0a;
+    }
+    .ps-nav-item.selected {
+      background: #0a0a0a;
+      color: #fafafa;
+    }
+    .ps-main {
+      flex: 1;
+      min-width: 0;
+    }
+    .ps-section {
+      display: none;
+    }
+    .ps-section.active {
+      display: block;
+    }
+    .ps-section .setting-card:first-child {
+      margin-top: 0;
+    }
+    /* 总开关停用时主区变灰（仍可查看与切换，重新开启即生效） */
+    body.preview-disabled .ps-main {
+      opacity: 0.5;
+    }
+
     /* 输入框：常态显示 hairline 边框，聚焦边框加深为墨色 */
     .group-input {
       width: 100%;
@@ -1014,80 +1147,151 @@
     </button>
   </div>
 
-  <!-- 首页：概览卡片（开关 + 设置入口），详细设置进二级页 -->
-  <div class="setting-card">
+  <!-- 首页：资源预览总开关（图片 / Markdown 等链接类型统一管理）；整卡点击进入详细设置 -->
+  <div class="setting-card setting-entry" id="previewSettingsEntry" role="button" tabindex="0" title="资源预览设置">
     <div class="setting-info">
-      <div class="setting-name">图片预览</div>
-      <div class="setting-desc">任意网页点击图片就地浮层查看</div>
+      <div class="setting-name">资源预览</div>
+      <div class="setting-desc">点击图片、Markdown、PDF 等链接就地浮层预览</div>
     </div>
-    <button class="icon-btn" id="imageSettingsBtn" type="button" title="图片预览设置">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-    </button>
-    <label class="switch">
-      <input type="checkbox" id="ghPreviewToggle">
+    <label class="switch" id="previewSwitchOuter">
+      <input type="checkbox" id="previewToggle">
       <span class="slider"></span>
     </label>
   </div>
 
   <div class="result" id="result"></div>
 
-  <!-- 图片预览设置二级页 -->
-  <div id="imageSettingsPanel" style="display:none;">
+  <!-- 资源预览设置二级页：左导航（打开方式 / 网站名单 / 预览类型）+ 右内容；总开关在头部 -->
+  <div id="previewSettingsPanel" style="display:none;">
     <div class="panel-header">
-      <button class="back-link" id="backFromImageSettings"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg> 返回</button>
-      <h1>图片预览设置</h1>
+      <button class="back-link" id="backFromPreviewSettings"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg> 返回</button>
+      <h1>资源预览设置</h1>
+      <!-- 总开关：对图片与全部链接资源预览生效 -->
+      <div class="header-enable">
+        <span id="previewStateText">已启用</span>
+        <label class="switch">
+          <input type="checkbox" id="previewToggleDetail">
+          <span class="slider"></span>
+        </label>
+      </div>
     </div>
 
-    <!-- 总开关 -->
-    <div class="setting-card">
-      <div class="setting-info">
-        <div class="setting-name">启用图片预览</div>
-        <div class="setting-desc">关闭后所有网站均不弹出预览</div>
-      </div>
-      <label class="switch">
-        <input type="checkbox" id="ghPreviewToggleDetail">
-        <span class="slider"></span>
+    <div class="ps-layout">
+      <nav class="ps-nav" id="previewNav">
+        <button type="button" class="ps-nav-item selected" data-section="modes">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 3 7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/><path d="m13 13 6 6"/></svg>
+          打开方式
+        </button>
+        <button type="button" class="ps-nav-item" data-section="sites">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg>
+          网站名单
+        </button>
+        <button type="button" class="ps-nav-item" data-section="types">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          预览类型
+        </button>
+      </nav>
+
+      <div class="ps-main">
+    <!-- 预览类型：每种格式单独启停，与总开关/名单同时生效；后续接入新类型时在此增加一行 -->
+    <section class="ps-section" data-section="types">
+    <div class="setting-card stacked" id="previewTypesCard">
+      <div class="setting-subname">预览类型（分别启停，默认全开）</div>
+      <label class="type-row">
+        <span class="type-name">图片</span>
+        <span class="type-desc">点击网页中的图片就地浮层查看</span>
+        <span class="switch"><input type="checkbox" data-type="image" checked><span class="slider"></span></span>
+      </label>
+      <label class="type-row">
+        <span class="type-name">Markdown</span>
+        <span class="type-desc">.md / .markdown 链接渲染预览，支持 GFM 表格与代码块</span>
+        <span class="switch"><input type="checkbox" data-type="markdown" checked><span class="slider"></span></span>
+      </label>
+      <label class="type-row">
+        <span class="type-name">PDF</span>
+        <span class="type-desc">.pdf 链接浮层内嵌浏览器原生查看器</span>
+        <span class="switch"><input type="checkbox" data-type="pdf" checked><span class="slider"></span></span>
+      </label>
+      <label class="type-row">
+        <span class="type-name">音视频</span>
+        <span class="type-desc">.mp3 / .wav / .mp4 / .webm 等浮层内播放</span>
+        <span class="switch"><input type="checkbox" data-type="media" checked><span class="slider"></span></span>
+      </label>
+      <label class="type-row">
+        <span class="type-name">文本代码</span>
+        <span class="type-desc">.txt / .json / .xml / .yml 及常见源码后缀，JSON 自动格式化</span>
+        <span class="switch"><input type="checkbox" data-type="text" checked><span class="slider"></span></span>
       </label>
     </div>
+    </section>
 
-    <!-- 触发方式 -->
+    <!-- 打开方式：图片与 Markdown / PDF / 音视频 / 文本代码链接共用 -->
+    <section class="ps-section active" data-section="modes">
     <div class="setting-card stacked">
-      <div class="setting-subname" style="margin-bottom:8px;">触发方式</div>
-      <div class="radio-list" id="triggerModeList">
+      <div class="setting-subname" style="margin-bottom:8px;">打开方式</div>
+      <div class="radio-list" id="linkTriggerModeList">
         <button type="button" class="radio-row selected" data-mode="click">
           <span class="dot"></span>
           <span class="radio-text">
-            <span class="radio-title">点击预览</span>
-            <span class="radio-desc">左键点击图片即打开浮层（默认）</span>
-          </span>
-        </button>
-        <button type="button" class="radio-row" data-mode="contextMenu">
-          <span class="dot"></span>
-          <span class="radio-text">
-            <span class="radio-title">右键菜单</span>
-            <span class="radio-desc">右键图片 →「预览图片」，点击不拦截</span>
+            <span class="radio-title">直接打开</span>
+            <span class="radio-desc">左键点击图片或可预览链接即打开浮层（默认）</span>
           </span>
         </button>
         <button type="button" class="radio-row" data-mode="modifier">
           <span class="dot"></span>
           <span class="radio-text">
             <span class="radio-title">Alt + 点击</span>
-            <span class="radio-desc">按住 Alt 键点击才预览，普通点击保持原生</span>
+            <span class="radio-desc">按住 Alt 点击才预览，普通点击保持浏览器原生行为</span>
+          </span>
+        </button>
+        <button type="button" class="radio-row" data-mode="contextMenu">
+          <span class="dot"></span>
+          <span class="radio-text">
+            <span class="radio-title">右键菜单</span>
+            <span class="radio-desc">右键图片 →「预览图片」、右键链接 →「预览链接」，左键不拦截</span>
+          </span>
+        </button>
+        <button type="button" class="radio-row" data-mode="drag">
+          <span class="dot"></span>
+          <span class="radio-text">
+            <span class="radio-title">拖动打开</span>
+            <span class="radio-desc">按住图片或链接拖开约 12px（圆环填实）后松手打开；未拖够松手按普通点击处理</span>
+          </span>
+        </button>
+        <button type="button" class="radio-row" data-mode="longpress">
+          <span class="dot"></span>
+          <span class="radio-text">
+            <span class="radio-title">长按打开</span>
+            <span class="radio-desc">按住图片或链接达到设定时长即预览，期间显示进度环，普通点击保持原生</span>
           </span>
         </button>
         <button type="button" class="radio-row" data-mode="hover">
           <span class="dot"></span>
           <span class="radio-text">
-            <span class="radio-title">悬停放大</span>
-            <span class="radio-desc">鼠标悬停图片约 0.6 秒自动显示，移开/ESC 关闭</span>
+            <span class="radio-title">悬停打开</span>
+            <span class="radio-desc">悬停图片或链接达到设定时长自动预览，光标处显示进度环，移开取消</span>
           </span>
         </button>
       </div>
+      <div class="delay-row" id="longPressDelayRow" style="display:none;">
+        <span>长按时长</span>
+        <input type="number" class="delay-input" id="linkLongPressMs" min="200" max="3000" step="50">
+        <span class="delay-unit">毫秒</span>
+        <span class="delay-hint">范围 200–3000</span>
+      </div>
+      <div class="delay-row" id="hoverDelayRow" style="display:none;">
+        <span>悬停延时</span>
+        <input type="number" class="delay-input" id="linkHoverMs" min="200" max="3000" step="50">
+        <span class="delay-unit">毫秒</span>
+        <span class="delay-hint">范围 200–3000</span>
+      </div>
     </div>
+    </section>
 
-    <!-- 网站名单：模式 / 当前网站 / 手动添加 / 列表 -->
+    <!-- 网站名单：模式 / 当前网站 / 手动添加 / 列表（对全部预览类型生效） -->
+    <section class="ps-section" data-section="sites">
     <div class="setting-card stacked">
-      <div class="setting-subname">名单模式</div>
+      <div class="setting-subname">网站名单（全部预览类型均生效）</div>
       <div class="seg" id="filterModeSeg">
         <button type="button" class="seg-btn selected" data-mode="blacklist">黑名单（排除指定站）</button>
         <button type="button" class="seg-btn" data-mode="whitelist">白名单（仅指定站）</button>
@@ -1118,6 +1322,9 @@
         <div id="blockedList"></div>
       </div>
     </div>
+    </section>
+      </div><!-- /.ps-main -->
+    </div><!-- /.ps-layout -->
   </div>
 
   <!-- 修改 Header 面板 -->

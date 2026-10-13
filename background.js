@@ -18,6 +18,12 @@ function createContextMenu() {
       title: '预览图片',
       contexts: ['image']
     });
+    // 链接资源预览手动入口：右键链接 → 预览链接（是否可预览由 content script 判定）
+    chrome.contextMenus.create({
+      id: 'preview-link',
+      title: '预览链接',
+      contexts: ['link']
+    });
   });
 }
 
@@ -29,6 +35,12 @@ chrome.contextMenus.onClicked.addListener(function(info, tab) {
   if (info.menuItemId === 'preview-image') {
     // 通知 content script 打开预览（找不到原图时由其按单图处理）
     chrome.tabs.sendMessage(tab.id, { action: 'previewImage', srcUrl: info.srcUrl || null })
+      .catch(function() {});
+    return;
+  }
+  if (info.menuItemId === 'preview-link') {
+    // 通知 content script 判定类型并打开预览；不支持的地址由其静默忽略
+    chrome.tabs.sendMessage(tab.id, { action: 'previewLink', url: info.linkUrl })
       .catch(function() {});
     return;
   }
@@ -47,8 +59,37 @@ chrome.runtime.onMessage.addListener(function(msg, sender, sendResponse) {
     var tabId = sender.tab ? sender.tab.id : null;
     downloadAll(msg.items, tabId).then(function(r) { sendResponse(r); });
     return true; // 异步响应
+  } else if (msg.action === 'fetchText') {
+    fetchText(msg.url).then(function(r) { sendResponse(r); });
+    return true; // 异步响应
   }
 });
+
+/* ===== 文本类资源抓取（Markdown / 代码 / JSON 等，content script 发起，后台无 CORS 限制）===== */
+
+var MAX_TEXT_BYTES = 10 * 1024 * 1024; // 超过 10MB 不抓取，避免占用内存
+
+function fetchText(url) {
+  return fetch(url, { credentials: 'include' }).then(function(res) {
+    var len = parseInt(res.headers.get('content-length') || '', 10);
+    if (len && len > MAX_TEXT_BYTES) {
+      return { ok: false, error: '文件超过 10MB，已停止预览' };
+    }
+    return res.text().then(function(text) {
+      if (text.length > MAX_TEXT_BYTES) {
+        return { ok: false, error: '文件超过 10MB，已停止预览' };
+      }
+      return {
+        ok: res.ok,
+        status: res.status,
+        text: text,
+        contentType: res.headers.get('content-type') || ''
+      };
+    });
+  }).catch(function(err) {
+    return { ok: false, error: (err && err.message) ? err.message : String(err) };
+  });
+}
 
 /* ===== 图片下载（content script 发起，后台串行执行）===== */
 
