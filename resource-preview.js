@@ -29,8 +29,10 @@
       'js', 'mjs', 'cjs', 'ts', 'tsx', 'jsx', 'java', 'py', 'c', 'h', 'cpp', 'cc',
       'hpp', 'cxx', 'cs', 'go', 'rs', 'rb', 'php', 'swift', 'kt', 'scala', 'lua',
       'r', 'pl', 'pm', 'sh', 'bash', 'zsh', 'bat', 'cmd', 'ps1', 'css', 'scss',
-      'less', 'vue', 'svelte', 'html', 'htm', 'groovy', 'gradle', 'dart', 'ex',
+      'less', 'vue', 'svelte', 'groovy', 'gradle', 'dart', 'ex',
       'exs', 'clj', 'hs', 'mk'
+      // 刻意不含 html/htm：.html 是标准网页（如文档站 button.html），
+      // 拦截会导致无法正常跳转；源码平台上的 HTML 源码也按普通页面打开
     ]
   };
   var EXT_TO_KIND = {};
@@ -115,7 +117,8 @@
   // 关闭当前浮层的句柄：停用开关/名单变更时由 storage 监听调用
   var closeActive = null;
 
-  // 按后缀判定地址类型：仅 http(s)；返回 { url: URL 对象, kind } 或 null
+  // 按后缀判定地址类型：仅拦截 https 地址（相对 href 会按当前页解析，
+  // http 页面上的相对链接同样不匹配）；返回 { url: URL 对象, kind } 或 null
   function detectKind(href, base) {
     if (!href) return null;
     var u;
@@ -124,7 +127,7 @@
     } catch (e) {
       return null;
     }
-    if (u.protocol !== 'http:' && u.protocol !== 'https:') return null;
+    if (u.protocol !== 'https:') return null;
     var m = u.pathname.match(/\.([a-z0-9]+)$/i);
     if (!m) return null;
     var kind = EXT_TO_KIND[m[1].toLowerCase()];
